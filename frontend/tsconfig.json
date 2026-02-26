@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["src", "app", "components", "data", "lib", "stores", "types", "vite.config.ts"],
+  "exclude": [
+    "node_modules",
+    "out",
+    ".next",
+    "app/api",
+    "app/layout.tsx",
+    "app/collections",
+    "app/products"
+  ]
+}
