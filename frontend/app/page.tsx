@@ -3,7 +3,6 @@ import { ProductCarousel } from "@/components/home/product-carousel";
 import { ComboPromo } from "@/components/home/combo-promo";
 import { TrustStrip } from "@/components/home/trust-strip";
 import { TestimonialsSlider } from "@/components/home/testimonials-slider";
-import { NewsletterBlock } from "@/components/home/newsletter-block";
 import { BulkSection } from "@/components/home/bulk-section";
 import { DIYDelights } from "@/components/home/diy-delights";
 import { products } from "@/data/products";
@@ -32,7 +31,6 @@ export default function HomePage() {
       <BulkSection />
       <DIYDelights />
       <TestimonialsSlider />
-      <NewsletterBlock />
     </>
   );
 }

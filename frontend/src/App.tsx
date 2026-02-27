@@ -44,7 +44,7 @@ export default function App() {
       <ScrollToTop />
       <TopPromoBar />
       <SiteHeader />
-      <main>
+      <main style={{ paddingTop: "calc(var(--top-promo-height, 0px) + var(--site-header-height, 0px))" }}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />

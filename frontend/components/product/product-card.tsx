@@ -53,7 +53,7 @@ export function ProductCard({ product }: Props) {
         </Link>
         <div className="absolute left-2 top-2 flex flex-wrap gap-1">
           {product.badges.slice(0, 2).map((badge) => (
-            <span key={badge} className="rounded-full bg-white/90 px-2 py-1 text-[10px] font-semibold text-pine">
+            <span key={badge} className="product-card-highlight rounded-full bg-white/90 px-2 py-1 text-[10px] font-semibold text-pine">
               {badge}
             </span>
           ))}

@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { BrandLogo } from "@/components/common/brand-logo";
 import { useUIStore } from "@/stores/ui-store";
+import { useAuthStore } from "@/stores/auth-store";
 
 const shopCategories = [
   {
@@ -27,6 +28,8 @@ const shopCategories = [
 export function MobileNavDrawer() {
   const open = useUIStore((state) => state.isMobileNavOpen);
   const close = useUIStore((state) => state.closeMobileNav);
+  const token = useAuthStore((state) => state.token);
+  const clearSession = useAuthStore((state) => state.clearSession);
 
   return (
     <AnimatePresence>
@@ -71,9 +74,23 @@ export function MobileNavDrawer() {
 
             <div className="mt-6 space-y-3 border-t border-stone pt-4 text-sm">
               <Link href="/" className="block" onClick={close}>HOME</Link>
+              <Link href="/account" className="block" onClick={close}>ACCOUNT</Link>
+              <Link href="/orders" className="block" onClick={close}>ORDERS</Link>
               <Link href="/about" className="block" onClick={close}>ABOUT US</Link>
               <Link href="/blog" className="block" onClick={close}>BLOG</Link>
               <Link href="/contact" className="block" onClick={close}>CONTACT</Link>
+              {token && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearSession();
+                    close();
+                  }}
+                  className="focus-ring block text-left text-sm"
+                >
+                  LOG OUT
+                </button>
+              )}
             </div>
           </motion.aside>
         </>

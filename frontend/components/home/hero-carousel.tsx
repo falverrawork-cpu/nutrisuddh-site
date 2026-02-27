@@ -33,6 +33,7 @@ export function HeroCarousel() {
             className="relative min-h-[360px] sm:min-h-[420px] lg:min-h-[450px]"
           >
             <Image src={slide.image} alt={slide.title} fill priority className="object-cover" sizes="100vw" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/35 to-black/25" />
             <div className="relative z-10 flex min-h-[360px] max-w-2xl flex-col justify-center p-5 text-white sm:min-h-[420px] sm:p-8 lg:min-h-[450px] lg:p-10">
               <p className="text-xs uppercase tracking-[0.2em] text-white/90">NS Agro Overseas</p>
               <h1 className="mt-3 font-display text-3xl leading-tight sm:text-4xl lg:text-5xl">{slide.title}</h1>
@@ -60,7 +61,7 @@ export function HeroCarousel() {
         <button
           type="button"
           onClick={() => setIndex((value) => (value - 1 + heroSlides.length) % heroSlides.length)}
-          className="focus-ring absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/95 p-1.5 sm:left-3 sm:p-2"
+          className="focus-ring absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-white/95 p-1.5 sm:left-3 sm:block sm:p-2"
           aria-label="Previous slide"
         >
           <ChevronLeft size={16} />
@@ -68,7 +69,7 @@ export function HeroCarousel() {
         <button
           type="button"
           onClick={() => setIndex((value) => (value + 1) % heroSlides.length)}
-          className="focus-ring absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/95 p-1.5 sm:right-3 sm:p-2"
+          className="focus-ring absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-white/95 p-1.5 sm:right-3 sm:block sm:p-2"
           aria-label="Next slide"
         >
           <ChevronRight size={16} />

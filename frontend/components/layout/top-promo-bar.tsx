@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { promoMessages } from "@/data/homepage";
 
 export function TopPromoBar() {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const promoRef = useRef<HTMLDivElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
   const message = useMemo(() => promoMessages[index % promoMessages.length], [index]);
 
@@ -20,9 +21,23 @@ export function TopPromoBar() {
     return () => clearInterval(timer);
   }, [paused]);
 
+  useEffect(() => {
+    const setPromoOffset = () => {
+      if (!promoRef.current) return;
+      document.documentElement.style.setProperty("--top-promo-height", `${promoRef.current.offsetHeight}px`);
+    };
+
+    setPromoOffset();
+    window.addEventListener("resize", setPromoOffset);
+    return () => {
+      window.removeEventListener("resize", setPromoOffset);
+    };
+  }, []);
+
   return (
     <div
-      className="relative z-50 bg-pine py-2 text-center text-xs font-medium text-white sm:text-sm"
+      ref={promoRef}
+      className="fixed inset-x-0 top-0 z-50 bg-pine py-2 text-center text-xs font-medium text-white sm:text-sm"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       aria-live="polite"

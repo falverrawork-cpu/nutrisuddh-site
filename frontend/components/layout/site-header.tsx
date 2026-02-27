@@ -3,8 +3,9 @@
 import Link from "@/components/common/app-link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { Eye, EyeOff, Heart, Menu, Package, ShoppingBag, User, X } from "lucide-react";
+import { Eye, EyeOff, Heart, Menu, Moon, Package, ShoppingBag, Sun, User, X } from "lucide-react";
 import { SearchTypeahead } from "@/components/common/search-typeahead";
 import { BrandLogo } from "@/components/common/brand-logo";
 import { useShopStore } from "@/stores/shop-store";
@@ -12,6 +13,7 @@ import { useUIStore } from "@/stores/ui-store";
 import { cn } from "@/lib/utils";
 import { useAuthStore, type AuthUser } from "@/stores/auth-store";
 import { apiFetch } from "@/lib/api";
+import { useThemeStore } from "@/stores/theme-store";
 
 const shopCategories = [
   {
@@ -34,9 +36,11 @@ const shopCategories = [
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const cart = useShopStore((state) => state.cart);
   const wishlist = useShopStore((state) => state.wishlist);
   const openCart = useUIStore((state) => state.openCart);
@@ -49,6 +53,8 @@ export function SiteHeader() {
   const user = useAuthStore((state) => state.user);
   const setSession = useAuthStore((state) => state.setSession);
   const clearSession = useAuthStore((state) => state.clearSession);
+  const theme = useThemeStore((state) => state.theme);
+  const toggleTheme = useThemeStore((state) => state.toggleTheme);
 
   const cartCount = useMemo(() => cart.reduce((acc, item) => acc + item.quantity, 0), [cart]);
 
@@ -75,8 +81,25 @@ export function SiteHeader() {
     return () => document.removeEventListener("mousedown", handleDocumentClick);
   }, []);
 
+  useEffect(() => {
+    const setHeaderOffset = () => {
+      if (!headerRef.current) return;
+      document.documentElement.style.setProperty("--site-header-height", `${headerRef.current.offsetHeight}px`);
+    };
+
+    setHeaderOffset();
+    window.addEventListener("resize", setHeaderOffset);
+    return () => {
+      window.removeEventListener("resize", setHeaderOffset);
+    };
+  }, []);
+
   return (
-    <header className="sticky top-0 z-40 border-b border-stone bg-white/95 backdrop-blur">
+    <header
+      ref={headerRef}
+      style={{ top: "var(--top-promo-height, 0px)" }}
+      className="fixed inset-x-0 z-40 border-b border-stone bg-white/95 backdrop-blur"
+    >
       <div className="container-base py-2.5 sm:py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -96,17 +119,32 @@ export function SiteHeader() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="group focus-ring relative rounded-full border border-stone p-2 transition-colors hover:border-pine hover:bg-pine hover:text-white"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+              <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2.5 py-1 text-[10px] font-medium text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                {theme === "dark" ? "Light mode" : "Dark mode"}
+              </span>
+            </button>
             <div className="relative" ref={accountMenuRef}>
               <button
                 type="button"
                 onClick={() => {
+                  if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+                    navigate("/account");
+                    return;
+                  }
                   if (token && user) {
                     setAccountMenuOpen((value) => !value);
                     return;
                   }
                   openAuthModal();
                 }}
-                className="group focus-ring relative rounded-full border border-stone p-2"
+                className="group focus-ring relative rounded-full border border-stone p-2 transition-colors hover:border-pine hover:bg-pine hover:text-white"
                 aria-label="Account"
               >
                 <User size={17} />
@@ -115,7 +153,7 @@ export function SiteHeader() {
                 </span>
               </button>
               {token && user && accountMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-44 rounded-xl border border-stone bg-white p-2 shadow-card">
+                <div className="absolute right-0 top-full mt-2 hidden w-44 rounded-xl border border-stone bg-white p-2 shadow-card lg:block">
                   <Link href="/account" className="focus-ring block rounded-lg px-3 py-2 text-sm text-ink hover:bg-sand">
                     My Account
                   </Link>
@@ -147,7 +185,12 @@ export function SiteHeader() {
             <div className="hidden sm:block">
               <IconWithCount href="#" icon={<Heart size={17} />} count={wishlist.length} label="Wishlist" />
             </div>
-            <button type="button" onClick={openCart} className="group focus-ring relative rounded-full border border-stone p-2" aria-label="Open cart">
+            <button
+              type="button"
+              onClick={openCart}
+              className="group focus-ring relative rounded-full border border-stone p-2 transition-colors hover:border-pine hover:bg-pine hover:text-white"
+              aria-label="Open cart"
+            >
               <ShoppingBag size={17} />
               <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2.5 py-1 text-[10px] font-medium text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
                 Cart
@@ -185,7 +228,7 @@ export function SiteHeader() {
                       key={category.title}
                       href={category.href}
                       onClick={() => setMenuOpen(false)}
-                      className="focus-ring rounded-xl border border-stone p-4 transition-colors hover:border-pine hover:bg-sand"
+                      className="focus-ring rounded-xl border border-stone p-4 transition-colors hover:border-pine hover:bg-sand hover:text-black"
                     >
                       <p className="font-semibold text-ink">{category.title}</p>
                       <p className="mt-1 text-xs text-gray-500">{category.description}</p>
@@ -419,7 +462,11 @@ function IconWithCount({
   label: string;
 }) {
   return (
-    <Link href={href} className="group focus-ring relative rounded-full border border-stone p-2" aria-label={label}>
+    <Link
+      href={href}
+      className="group focus-ring relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-stone bg-transparent transition-colors hover:border-pine hover:bg-pine hover:text-white"
+      aria-label={label}
+    >
       {icon}
       <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2.5 py-1 text-[10px] font-medium text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
         {label}
@@ -443,7 +490,11 @@ function IconButtonWithTooltip({
   label: string;
 }) {
   return (
-    <Link href={href} className="group focus-ring relative rounded-full border border-stone p-2" aria-label={label}>
+    <Link
+      href={href}
+      className="group focus-ring relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-stone bg-transparent transition-colors hover:border-pine hover:bg-pine hover:text-white"
+      aria-label={label}
+    >
       {icon}
       <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2.5 py-1 text-[10px] font-medium text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
         {label}
