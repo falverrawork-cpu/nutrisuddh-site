@@ -60,3 +60,49 @@ This project is best hosted as:
   - Verify provider allows app SMTP login.
 - Data resets after redeploy:
   - Backend disk/volume is not persistent or not mounted correctly.
+
+---
+
+## VPS Hosting (Ubuntu + Nginx + systemd)
+
+Use this if you want to host everything on your own VPS.
+
+### A) One-time server setup
+
+1. Install packages:
+   - `sudo apt update && sudo apt install -y nginx git curl`
+2. Install Node.js 20:
+   - `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -`
+   - `sudo apt install -y nodejs`
+3. Clone repo:
+   - `sudo mkdir -p /var/www`
+   - `cd /var/www`
+   - `sudo git clone https://github.com/falverrawork-cpu/nutrisuddh-site.git`
+   - `sudo chown -R $USER:$USER /var/www/nutrisuddh-site`
+4. Configure backend env:
+   - `cp /var/www/nutrisuddh-site/backend/.env /var/www/nutrisuddh-site/backend/.env` (or create it with production secrets)
+
+### B) Configure systemd + nginx
+
+1. Install backend service:
+   - `sudo cp /var/www/nutrisuddh-site/deploy/vps/nutrisuddh-backend.service /etc/systemd/system/`
+   - `sudo systemctl daemon-reload`
+   - `sudo systemctl enable nutrisuddh-backend`
+2. Install nginx site:
+   - `sudo cp /var/www/nutrisuddh-site/deploy/vps/nginx-nutrisuddh.conf /etc/nginx/sites-available/nutrisuddh`
+   - `sudo ln -sf /etc/nginx/sites-available/nutrisuddh /etc/nginx/sites-enabled/nutrisuddh`
+   - `sudo rm -f /etc/nginx/sites-enabled/default`
+   - `sudo nginx -t && sudo systemctl restart nginx`
+
+### C) Deploy updates
+
+Run:
+
+`bash /var/www/nutrisuddh-site/deploy/vps/deploy-vps.sh`
+
+This script will:
+- pull latest `main`
+- install dependencies
+- build frontend/backend
+- restart backend service
+- reload nginx
