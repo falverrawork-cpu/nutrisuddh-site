@@ -117,7 +117,7 @@ export function ProductDetailContent({ product }: { product: Product }) {
   const standardDescription =
     "Our makhana products are sourced from premium lotus farms and processed in hygienic facilities. Each batch undergoes grading, roasting, and seasoning using controlled techniques to ensure quality, crunch, and flavour consistency.";
   const standardIngredients =
-    "We use high-quality makhana along with food-grade seasonings and edible oils. No harmful additives or preservatives are used.";
+    "We use high-quality makhana along with food-grade seasonings and Olive Oil. No harmful additives or preservatives are used.";
   const standardStorage =
     "Store in a cool & dry place. Avoid direct sunlight. Keep airtight after opening.";
   const standardShipping =
@@ -138,7 +138,7 @@ export function ProductDetailContent({ product }: { product: Product }) {
       question: "What ingredients are used?",
       answer:
         product.ingredients ??
-        "Makhana with food-grade seasonings and edible oil, crafted for balanced flavour and quality."
+        "Makhana with food-grade seasonings and Olive Oil, crafted for balanced flavour and quality."
     },
     {
       question: "How should I store this product?",

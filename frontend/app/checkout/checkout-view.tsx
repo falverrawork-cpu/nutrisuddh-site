@@ -11,7 +11,15 @@ import { products } from "@/data/products";
 import { useShopStore } from "@/stores/shop-store";
 import { useUIStore } from "@/stores/ui-store";
 import { getDetailedCartItems } from "@/lib/cart";
-import { getCartNudge, getCartPricing, isEligibleSinglePack } from "@/lib/pricing";
+import {
+  COUPON_OFFERS,
+  type DiscountCode,
+  getCartNudge,
+  getCartPricing,
+  getCouponIneligibilityReason,
+  getEligibleCouponCodes,
+  isEligibleSinglePack
+} from "@/lib/pricing";
 import { formatCurrency } from "@/lib/utils";
 import { ConfettiBurst } from "@/components/common/confetti-burst";
 import { useAuthStore, type AuthUser } from "@/stores/auth-store";
@@ -35,26 +43,11 @@ type AuthResponse = {
   user: AuthUser;
 };
 
-type CouponConfig = {
-  code: string;
-  label: string;
-  minAmount: number;
-  type: "flat" | "shipping";
-  amount: number;
-};
-
 type DeliveryDetails = {
   addressLine1: string;
   addressLine2: string;
   pinCode: string;
 };
-
-const COUPONS: CouponConfig[] = [
-  { code: "SAVE40", label: "Flat ₹40 OFF", minAmount: 499, type: "flat", amount: 40 },
-  { code: "WELCOME99", label: "Flat ₹99 OFF", minAmount: 999, type: "flat", amount: 99 },
-  { code: "SHIPFREE", label: "Free Shipping", minAmount: 199, type: "shipping", amount: 79 },
-  { code: "FREEADMIN", label: "Set Total to ₹1", minAmount: 0, type: "flat", amount: Number.MAX_SAFE_INTEGER }
-];
 
 const INITIAL_DELIVERY: DeliveryDetails = {
   addressLine1: "",
@@ -68,7 +61,7 @@ export function CheckoutView() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [couponInput, setCouponInput] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<CouponConfig | null>(null);
+  const [appliedCouponCode, setAppliedCouponCode] = useState<DiscountCode | null>(null);
   const [showCouponList, setShowCouponList] = useState(false);
   const [activeRecommendation, setActiveRecommendation] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -86,7 +79,8 @@ export function CheckoutView() {
   const openAuthModal = useUIStore((state) => state.openAuthModal);
 
   const lines = getDetailedCartItems(cart);
-  const pricing = getCartPricing(cart);
+  const eligibleCouponCodes = useMemo(() => getEligibleCouponCodes(cart), [cart]);
+  const pricing = getCartPricing(cart, appliedCouponCode);
 
   const singleRecommendations = useMemo(() => {
     const inCartIds = new Set(lines.map((line) => line.product.id));
@@ -126,30 +120,27 @@ export function CheckoutView() {
     }
   }, []);
 
-  const couponDiscount = useMemo(() => {
-    if (!appliedCoupon) return 0;
-    if (appliedCoupon.type === "shipping") {
-      return Math.min(pricing.shipping, appliedCoupon.amount);
+  useEffect(() => {
+    if (!appliedCouponCode) return;
+    if (!eligibleCouponCodes.includes(appliedCouponCode)) {
+      setAppliedCouponCode(null);
+      addToast("Applied coupon removed because cart no longer meets its conditions.", "info");
     }
-    if (appliedCoupon.code === "FREEADMIN") {
-      return Math.max(0, pricing.finalPayable - 1);
-    }
-    return Math.min(pricing.finalPayable, appliedCoupon.amount);
-  }, [appliedCoupon, pricing.finalPayable, pricing.shipping]);
+  }, [addToast, appliedCouponCode, eligibleCouponCodes]);
 
-  const standardFinalPayable = Math.max(0, pricing.finalPayable - couponDiscount);
-  const payableAmount = standardFinalPayable;
+  const payableAmount = pricing.finalPayable;
   const totalVisibleSavings = useMemo(() => {
     const productLevelSavings = lines.reduce((total, line) => {
       const originalLinePrice = line.product.compareAtPrice * line.item.quantity;
       return total + Math.max(0, originalLinePrice - line.linePrice);
     }, 0);
-    return productLevelSavings + pricing.discountAmount + couponDiscount;
-  }, [couponDiscount, lines, pricing.discountAmount]);
+    return productLevelSavings + pricing.discountAmount;
+  }, [lines, pricing.discountAmount]);
 
   const appliedCouponLabels = [
-    pricing.discountCode ? `${pricing.discountCode} (Auto)` : null,
-    appliedCoupon ? `${appliedCoupon.code}` : null
+    pricing.discountCode
+      ? (appliedCouponCode && pricing.discountCode === appliedCouponCode ? pricing.discountCode : `${pricing.discountCode} (Auto)`)
+      : null
   ].filter(Boolean) as string[];
 
   const isGatewayReady = scriptLoaded || (typeof window !== "undefined" && Boolean(window.Razorpay));
@@ -199,20 +190,20 @@ export function CheckoutView() {
       return;
     }
 
-    const coupon = COUPONS.find((value) => value.code === code);
-    if (!coupon) {
-      addToast("Invalid coupon code", "info");
+    const offer = COUPON_OFFERS.find((value) => value.code === code);
+    if (!offer) {
+      addToast("Invalid coupon code.", "info");
       return;
     }
 
-    if (pricing.finalPayable < coupon.minAmount) {
-      addToast(`Coupon valid for orders above ${formatCurrency(coupon.minAmount)}`, "info");
+    if (!eligibleCouponCodes.includes(offer.code)) {
+      addToast(getCouponIneligibilityReason(code), "info");
       return;
     }
 
-    setAppliedCoupon(coupon);
-    setCouponInput(coupon.code);
-    addToast(`${coupon.code} applied successfully`);
+    setAppliedCouponCode(offer.code);
+    setCouponInput(offer.code);
+    addToast(`${offer.code} applied successfully`);
   };
 
   const validateDeliveryDetails = () => {
@@ -312,10 +303,6 @@ export function CheckoutView() {
             expectedDeliveryDate.setDate(expectedDeliveryDate.getDate() + 7);
 
             const orderId = `ORD-${createdAt.getTime()}`;
-            const combinedDiscountCode = [pricing.discountCode, appliedCoupon?.code]
-              .filter(Boolean)
-              .join(" + ");
-
             let sessionToken = token;
             if (!sessionToken) {
               const accountResult = await apiFetch<AuthResponse>("/api/auth/checkout-account", {
@@ -338,8 +325,8 @@ export function CheckoutView() {
               status: "Order Confirmed",
               paymentId: response.razorpay_payment_id,
               subtotal: pricing.subtotal,
-              discountCode: combinedDiscountCode || undefined,
-              discountAmount: pricing.discountAmount + couponDiscount,
+              discountCode: pricing.discountCode || undefined,
+              discountAmount: pricing.discountAmount,
               shipping: pricing.shipping,
               total: payableAmount,
               customerName: checkoutIdentity.name,
@@ -413,12 +400,6 @@ export function CheckoutView() {
             <span>-{formatCurrency(pricing.discountAmount)}</span>
           </div>
         )}
-        {appliedCoupon && couponDiscount > 0 && (
-          <div className="flex items-center justify-between text-pine">
-            <span>{appliedCoupon.code}</span>
-            <span>-{formatCurrency(couponDiscount)}</span>
-          </div>
-        )}
         <div className="flex items-center justify-between">
           <span>Shipping</span>
           <span>{pricing.shipping === 0 ? "Free" : formatCurrency(pricing.shipping)}</span>
@@ -448,7 +429,7 @@ export function CheckoutView() {
 
       <div className="mt-3 space-y-1.5 rounded-xl border border-stone bg-sand/40 px-3 py-3 text-xs text-gray-600">
         <p className="inline-flex items-center gap-1"><ShieldCheck size={13} className="text-pine" /> 100% secure payment and verification</p>
-        <p className="inline-flex items-center gap-1"><Timer size={13} className="text-pine" /> Delivery ETA: 7 days after purchase</p>
+        <p className="inline-flex items-center gap-1"><Timer size={13} className="text-pine" /> Delivery ETA: 7 Days</p>
       </div>
     </aside>
   );
@@ -494,32 +475,15 @@ export function CheckoutView() {
 
           <section className="card-surface p-5">
             <h2 className="text-lg font-semibold">Coupons</h2>
+            <p className="mt-1 text-xs text-gray-500">Only one coupon can be applied at a time.</p>
             <div className="mt-3">
               <button
                 type="button"
-                onClick={() => setShowCouponList((value) => !value)}
+                onClick={() => setShowCouponList(true)}
                 className="focus-ring rounded-full border border-pine/50 bg-pine/10 px-4 py-2 text-xs font-semibold text-pine"
               >
-                {showCouponList ? "Hide Available Coupon Codes" : "Show Available Coupon Codes"}
+                Show Available Coupon Codes
               </button>
-              {showCouponList && (
-                <div className="mt-2 space-y-2 rounded-lg border border-pine/50 bg-pine/10 px-3 py-3 text-xs text-pine">
-                  {COUPONS.map((coupon) => (
-                    <button
-                      key={coupon.code}
-                      type="button"
-                      onClick={() => {
-                        setCouponInput(coupon.code);
-                        applyCouponCode(coupon.code);
-                      }}
-                      className="focus-ring block w-full rounded-md border border-pine/25 bg-white/70 px-2 py-1 text-left text-ink hover:border-pine/40"
-                    >
-                      <p className="font-semibold">{coupon.code} - {coupon.label}</p>
-                      <p className="text-[11px] text-gray-600">Min order: {formatCurrency(coupon.minAmount)}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
             <div className="mt-3 flex gap-2">
               <input
@@ -547,16 +511,16 @@ export function CheckoutView() {
                 ))
               )}
             </div>
-            {appliedCoupon && (
+            {appliedCouponCode && (
               <button
                 type="button"
                 onClick={() => {
-                  setAppliedCoupon(null);
+                  setAppliedCouponCode(null);
                   addToast("Coupon removed", "info");
                 }}
                 className="focus-ring mt-2 rounded-full border border-stone px-3 py-1 text-[11px] text-gray-600"
               >
-                Remove manual coupon
+                Remove coupon
               </button>
             )}
           </section>
@@ -700,6 +664,48 @@ export function CheckoutView() {
 
         {renderPaymentSummary("card-surface hidden h-fit p-5 lg:sticky lg:top-24 lg:block")}
       </div>
+
+      {showCouponList && (
+        <div
+          className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 p-3 sm:items-center sm:p-6"
+          onClick={() => setShowCouponList(false)}
+        >
+          <div
+            className="w-full max-w-xl rounded-2xl border border-stone bg-white p-4 shadow-2xl sm:p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-base font-semibold text-ink">Available Coupon Codes</h3>
+              <button
+                type="button"
+                onClick={() => setShowCouponList(false)}
+                className="focus-ring rounded-full border border-stone px-3 py-1 text-xs text-gray-600"
+              >
+                Close
+              </button>
+            </div>
+            <div className="mt-3 max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+              {COUPON_OFFERS.filter((coupon) => !["NAVA001", "YUVA200", "YUVA400"].includes(coupon.code)).map((coupon) => (
+                <button
+                  key={coupon.code}
+                  type="button"
+                  onClick={() => {
+                    setCouponInput(coupon.code);
+                    applyCouponCode(coupon.code);
+                    setShowCouponList(false);
+                  }}
+                  className="focus-ring block w-full rounded-md border border-pine/25 bg-pine/5 px-3 py-2 text-left text-ink hover:border-pine/40"
+                >
+                  <p className="font-semibold">{coupon.code} - {coupon.description}</p>
+                  <p className="text-[11px] text-gray-600">
+                    {eligibleCouponCodes.includes(coupon.code) ? "Eligible for current cart" : getCouponIneligibilityReason(coupon.code)}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -13,14 +13,21 @@ type AuthResponse = {
 };
 
 export function AccountView() {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [loading, setLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [forgotResetLoading, setForgotResetLoading] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "+91", email: "", password: "" });
   const [profileForm, setProfileForm] = useState({ name: "", phone: "" });
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [passwordResetMode, setPasswordResetMode] = useState<"current" | "forgot">("current");
+  const [forgotResetStep, setForgotResetStep] = useState<"request" | "confirm">("request");
+  const [forgotResetForm, setForgotResetForm] = useState({ code: "", newPassword: "", confirmPassword: "" });
   const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotStep, setForgotStep] = useState<"request" | "confirm">("request");
+  const [forgotForm, setForgotForm] = useState({ email: "", code: "", newPassword: "", confirmPassword: "" });
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const setSession = useAuthStore((state) => state.setSession);
@@ -46,6 +53,14 @@ export function AccountView() {
       phone: current.phone.trim() ? current.phone : "+91"
     }));
   }, [mode]);
+
+  useEffect(() => {
+    if (mode !== "forgot") return;
+    setForgotForm((current) => ({
+      ...current,
+      email: current.email.trim() ? current.email : form.email
+    }));
+  }, [form.email, mode]);
 
   const onUpdateProfile = async (event: FormEvent) => {
     event.preventDefault();
@@ -105,9 +120,109 @@ export function AccountView() {
     }
   };
 
+  const onForgotResetPassword = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!user || forgotResetLoading) return;
+
+    setForgotResetLoading(true);
+    try {
+      if (forgotResetStep === "request") {
+        await apiFetch<{ ok: boolean; message: string }>("/api/auth/forgot-password/request", {
+          method: "POST",
+          body: JSON.stringify({ email: user.email })
+        });
+        setForgotResetStep("confirm");
+        addToast("If the email exists, reset code has been sent.");
+        return;
+      }
+
+      if (!forgotResetForm.code.trim()) {
+        addToast("Reset code is required.", "info");
+        return;
+      }
+      if (!forgotResetForm.newPassword.trim()) {
+        addToast("New password is required.", "info");
+        return;
+      }
+      if (forgotResetForm.newPassword !== forgotResetForm.confirmPassword) {
+        addToast("New password and confirm password do not match.", "info");
+        return;
+      }
+
+      await apiFetch<{ ok: boolean }>("/api/auth/forgot-password/confirm", {
+        method: "POST",
+        body: JSON.stringify({
+          email: user.email,
+          code: forgotResetForm.code,
+          newPassword: forgotResetForm.newPassword
+        })
+      });
+      setSession(token!, { ...user, hasPassword: true });
+      setForgotResetForm({ code: "", newPassword: "", confirmPassword: "" });
+      setForgotResetStep("request");
+      setPasswordResetMode("current");
+      addToast("Password reset successfully");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "Unable to reset password.", "info");
+    } finally {
+      setForgotResetLoading(false);
+    }
+  };
+
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (loading) return;
+    if (mode === "forgot") {
+      setLoading(true);
+      try {
+        if (forgotStep === "request") {
+          if (!forgotForm.email.trim()) {
+            addToast("Email is required.", "info");
+            return;
+          }
+          await apiFetch<{ ok: boolean; message: string }>("/api/auth/forgot-password/request", {
+            method: "POST",
+            body: JSON.stringify({ email: forgotForm.email })
+          });
+          addToast("If the email exists, reset code has been sent.");
+          setForgotStep("confirm");
+          return;
+        }
+
+        if (!forgotForm.code.trim()) {
+          addToast("Reset code is required.", "info");
+          return;
+        }
+        if (!forgotForm.newPassword.trim()) {
+          addToast("New password is required.", "info");
+          return;
+        }
+        if (forgotForm.newPassword !== forgotForm.confirmPassword) {
+          addToast("New password and confirm password do not match.", "info");
+          return;
+        }
+
+        await apiFetch<{ ok: boolean }>("/api/auth/forgot-password/confirm", {
+          method: "POST",
+          body: JSON.stringify({
+            email: forgotForm.email,
+            code: forgotForm.code,
+            newPassword: forgotForm.newPassword
+          })
+        });
+        addToast("Password reset successful. Please login.");
+        setMode("login");
+        setForgotStep("request");
+        setForm((current) => ({ ...current, email: forgotForm.email, password: "" }));
+        setForgotForm({ email: forgotForm.email, code: "", newPassword: "", confirmPassword: "" });
+      } catch (error) {
+        addToast(error instanceof Error ? error.message : "Unable to reset password.", "info");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (mode === "signup") {
       if (!form.name.trim()) {
         addToast("Name is required.", "info");
@@ -185,38 +300,99 @@ export function AccountView() {
               No password set yet. Create a new password below.
             </p>
           )}
-          <form onSubmit={onResetPassword} className="mt-3 grid gap-3">
-            {user.hasPassword && (
+          {user.hasPassword && (
+            <div className="mt-3 inline-flex rounded-full border border-stone bg-white p-1">
+              <button
+                type="button"
+                onClick={() => setPasswordResetMode("current")}
+                className={`focus-ring rounded-full px-4 py-1.5 text-sm ${passwordResetMode === "current" ? "bg-pine text-white" : "text-gray-600"}`}
+              >
+                Use Current Password
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPasswordResetMode("forgot");
+                  setForgotResetStep("request");
+                }}
+                className={`focus-ring rounded-full px-4 py-1.5 text-sm ${passwordResetMode === "forgot" ? "bg-pine text-white" : "text-gray-600"}`}
+              >
+                Forgot Password
+              </button>
+            </div>
+          )}
+
+          {(!user.hasPassword || passwordResetMode === "current") && (
+            <form onSubmit={onResetPassword} className="mt-3 grid gap-3">
+              {user.hasPassword && (
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm((state) => ({ ...state, currentPassword: e.target.value }))}
+                  placeholder="Current password"
+                  className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                />
+              )}
               <input
                 type="password"
-                value={passwordForm.currentPassword}
-                onChange={(e) => setPasswordForm((state) => ({ ...state, currentPassword: e.target.value }))}
-                placeholder="Current password"
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm((state) => ({ ...state, newPassword: e.target.value }))}
+                placeholder="New password"
                 className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
               />
-            )}
-            <input
-              type="password"
-              value={passwordForm.newPassword}
-              onChange={(e) => setPasswordForm((state) => ({ ...state, newPassword: e.target.value }))}
-              placeholder="New password"
-              className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
-            />
-            <input
-              type="password"
-              value={passwordForm.confirmPassword}
-              onChange={(e) => setPasswordForm((state) => ({ ...state, confirmPassword: e.target.value }))}
-              placeholder="Confirm new password"
-              className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
-            />
-            <button
-              type="submit"
-              disabled={passwordLoading}
-              className={`focus-ring rounded-full py-2.5 text-sm font-semibold ${passwordLoading ? "bg-gray-300 text-gray-600" : "bg-pine text-white"}`}
-            >
-              {passwordLoading ? "Updating..." : "Reset Password"}
-            </button>
-          </form>
+              <input
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm((state) => ({ ...state, confirmPassword: e.target.value }))}
+                placeholder="Confirm new password"
+                className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+              />
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className={`focus-ring rounded-full py-2.5 text-sm font-semibold ${passwordLoading ? "bg-gray-300 text-gray-600" : "bg-pine text-white"}`}
+              >
+                {passwordLoading ? "Updating..." : "Reset Password"}
+              </button>
+            </form>
+          )}
+
+          {user.hasPassword && passwordResetMode === "forgot" && (
+            <form onSubmit={onForgotResetPassword} className="mt-3 grid gap-3">
+              <input value={user.email} disabled className="rounded-lg border border-stone bg-gray-50 px-3 py-2 text-sm text-gray-500" />
+              {forgotResetStep === "confirm" && (
+                <>
+                  <input
+                    value={forgotResetForm.code}
+                    onChange={(e) => setForgotResetForm((state) => ({ ...state, code: e.target.value }))}
+                    placeholder="Reset code"
+                    className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="password"
+                    value={forgotResetForm.newPassword}
+                    onChange={(e) => setForgotResetForm((state) => ({ ...state, newPassword: e.target.value }))}
+                    placeholder="New password"
+                    className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="password"
+                    value={forgotResetForm.confirmPassword}
+                    onChange={(e) => setForgotResetForm((state) => ({ ...state, confirmPassword: e.target.value }))}
+                    placeholder="Confirm new password"
+                    className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                  />
+                </>
+              )}
+              <button
+                type="submit"
+                disabled={forgotResetLoading}
+                className={`focus-ring rounded-full py-2.5 text-sm font-semibold ${forgotResetLoading ? "bg-gray-300 text-gray-600" : "bg-pine text-white"}`}
+              >
+                {forgotResetLoading ? "Please wait..." : forgotResetStep === "request" ? "Send Reset Code" : "Reset Password"}
+              </button>
+            </form>
+          )}
         </div>
 
         <div className="card-surface p-6">
@@ -247,20 +423,26 @@ export function AccountView() {
 
   return (
     <div className="card-surface mx-auto max-w-xl p-6">
-      <h1 className="font-display text-3xl">{mode === "login" ? "Login" : "Create Account"}</h1>
+      <h1 className="font-display text-3xl">{mode === "signup" ? "Create Account" : mode === "forgot" ? "Forgot Password" : "Login"}</h1>
       <p className="mt-2 text-sm text-gray-600">Sign in to store and track all your orders in one place.</p>
 
       <div className="mt-4 inline-flex rounded-full border border-stone bg-white p-1">
         <button
           type="button"
-          onClick={() => setMode("login")}
+          onClick={() => {
+            setMode("login");
+            setForgotStep("request");
+          }}
           className={`focus-ring rounded-full px-4 py-1.5 text-sm ${mode === "login" ? "bg-pine text-white" : "text-gray-600"}`}
         >
           Login
         </button>
         <button
           type="button"
-          onClick={() => setMode("signup")}
+          onClick={() => {
+            setMode("signup");
+            setForgotStep("request");
+          }}
           className={`focus-ring rounded-full px-4 py-1.5 text-sm ${mode === "signup" ? "bg-pine text-white" : "text-gray-600"}`}
         >
           Sign Up
@@ -268,33 +450,128 @@ export function AccountView() {
       </div>
 
       <form onSubmit={onSubmit} className="mt-4 grid gap-3">
-        {mode === "signup" && (
+        {mode === "forgot" ? (
+          <>
+            <input
+              value={forgotForm.email}
+              onChange={(e) => setForgotForm((s) => ({ ...s, email: e.target.value }))}
+              placeholder="Email"
+              className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+            />
+            {forgotStep === "confirm" && (
+              <>
+                <input
+                  value={forgotForm.code}
+                  onChange={(e) => setForgotForm((s) => ({ ...s, code: e.target.value }))}
+                  placeholder="Reset code"
+                  className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                />
+                <div className="relative">
+                  <input
+                    type={showForgotPassword ? "text" : "password"}
+                    value={forgotForm.newPassword}
+                    onChange={(e) => setForgotForm((s) => ({ ...s, newPassword: e.target.value }))}
+                    placeholder="New password"
+                    className="focus-ring w-full rounded-lg border border-stone px-3 py-2 pr-10 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword((value) => !value)}
+                    className="focus-ring no-hover-lift absolute right-2 inset-y-0 my-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500"
+                    aria-label={showForgotPassword ? "Hide password" : "Show password"}
+                  >
+                    {showForgotPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <input
+                  type={showForgotPassword ? "text" : "password"}
+                  value={forgotForm.confirmPassword}
+                  onChange={(e) => setForgotForm((s) => ({ ...s, confirmPassword: e.target.value }))}
+                  placeholder="Confirm new password"
+                  className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                />
+              </>
+            )}
+          </>
+        ) : mode === "signup" ? (
           <>
             <input value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} placeholder="Full name" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
+            <input value={form.email} onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))} placeholder="Email" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
             <input value={form.phone} onChange={(e) => setForm((s) => ({ ...s, phone: e.target.value }))} placeholder="Phone (+91XXXXXXXXXX)" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
+            <div className="relative">
+              <input
+                type={showAuthPassword ? "text" : "password"}
+                value={form.password}
+                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+                placeholder="Password"
+                className="focus-ring w-full rounded-lg border border-stone px-3 py-2 pr-10 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => setShowAuthPassword((value) => !value)}
+                className="focus-ring no-hover-lift absolute right-2 inset-y-0 my-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500"
+                aria-label={showAuthPassword ? "Hide password" : "Show password"}
+              >
+                {showAuthPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <input value={form.email} onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))} placeholder="Email" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
+            <div className="relative">
+              <input
+                type={showAuthPassword ? "text" : "password"}
+                value={form.password}
+                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+                placeholder="Password"
+                className="focus-ring w-full rounded-lg border border-stone px-3 py-2 pr-10 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => setShowAuthPassword((value) => !value)}
+                className="focus-ring no-hover-lift absolute right-2 inset-y-0 my-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500"
+                aria-label={showAuthPassword ? "Hide password" : "Show password"}
+              >
+                {showAuthPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("forgot");
+                setForgotStep("request");
+                setForgotForm((current) => ({ ...current, email: form.email }));
+              }}
+              className="focus-ring -mt-1 w-fit rounded-full border border-stone px-3 py-1 text-xs text-gray-600"
+            >
+              Forgot Password?
+            </button>
           </>
         )}
-        <input value={form.email} onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))} placeholder="Email" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
-        <div className="relative">
-          <input
-            type={showAuthPassword ? "text" : "password"}
-            value={form.password}
-            onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
-            placeholder="Password"
-            className="focus-ring w-full rounded-lg border border-stone px-3 py-2 pr-10 text-sm"
-          />
+        <button type="submit" disabled={loading} className={`focus-ring rounded-full py-2.5 text-sm font-semibold ${loading ? "bg-gray-300 text-gray-600" : "bg-pine text-white"}`}>
+          {loading
+            ? "Please wait..."
+            : mode === "signup"
+              ? "Create Account"
+              : mode === "forgot"
+                ? forgotStep === "request"
+                  ? "Send Reset Code"
+                  : "Reset Password"
+                : "Login"}
+        </button>
+        {mode === "forgot" && (
           <button
             type="button"
-            onClick={() => setShowAuthPassword((value) => !value)}
-            className="focus-ring absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-500"
-            aria-label={showAuthPassword ? "Hide password" : "Show password"}
+            onClick={() => {
+              setMode("login");
+              setForgotStep("request");
+            }}
+            className="focus-ring rounded-full border border-stone py-2.5 text-sm font-semibold text-gray-700"
           >
-            {showAuthPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            Back to Login
           </button>
-        </div>
-        <button type="submit" disabled={loading} className={`focus-ring rounded-full py-2.5 text-sm font-semibold ${loading ? "bg-gray-300 text-gray-600" : "bg-pine text-white"}`}>
-          {loading ? "Please wait..." : mode === "login" ? "Login" : "Create Account"}
-        </button>
+        )}
       </form>
     </div>
   );

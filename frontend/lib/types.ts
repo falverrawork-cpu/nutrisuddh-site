@@ -98,3 +98,21 @@ export type Order = {
   pinCode?: string;
   items: OrderItem[];
 };
+
+export type FormSubmission = {
+  id: number;
+  formType: "contact" | "bulk";
+  name: string;
+  email: string;
+  phone: string;
+  subject: string;
+  company: string;
+  country: string;
+  quantity: string;
+  message: string;
+  status: "new" | "replied" | string;
+  replySubject: string;
+  replyMessage: string;
+  repliedAt: string | null;
+  createdAt: string;
+};

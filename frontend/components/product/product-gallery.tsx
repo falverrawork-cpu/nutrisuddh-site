@@ -34,7 +34,7 @@ export function ProductGallery({ images, title }: { images: string[]; title: str
         <button
           type="button"
           onClick={goToPrevious}
-          className="focus-ring no-hover-lift absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-stone bg-white/90 p-2 text-ink"
+          className="focus-ring hero-arrow-static absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/95 p-2 text-ink"
           aria-label="Previous image"
         >
           <ChevronLeft size={18} />
@@ -42,20 +42,20 @@ export function ProductGallery({ images, title }: { images: string[]; title: str
         <button
           type="button"
           onClick={goToNext}
-          className="focus-ring no-hover-lift absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-stone bg-white/90 p-2 text-ink"
+          className="focus-ring hero-arrow-static absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/95 p-2 text-ink"
           aria-label="Next image"
         >
           <ChevronRight size={18} />
         </button>
       </div>
 
-      <div className="flex justify-center gap-2">
+      <div className="hide-scrollbar -mx-1 flex max-w-full justify-start gap-2 overflow-x-auto px-1 sm:justify-center sm:overflow-visible sm:px-0">
         {images.map((_, index) => (
           <button
             key={`${title}-dot-${index}`}
             type="button"
             onClick={() => setActive(index)}
-            className={`h-2.5 rounded-full transition-all ${active === index ? "w-6 bg-pine" : "w-2.5 bg-stone"}`}
+            className={`h-2.5 shrink-0 rounded-full transition-all ${active === index ? "w-6 bg-pine" : "w-2.5 bg-stone"}`}
             aria-label={`Go to image ${index + 1}`}
           />
         ))}

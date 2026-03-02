@@ -33,7 +33,7 @@ export function ProductCarousel({ products, title, subtitle }: Props) {
               type="button"
               onClick={() => setPage((value) => Math.max(0, value - 1))}
               disabled={page === 0}
-              className="focus-ring rounded-full border border-stone p-2 disabled:opacity-40"
+              className="focus-ring hero-arrow-static rounded-full bg-white/95 p-2 disabled:opacity-40"
               aria-label="Previous products"
             >
               <ChevronLeft size={18} />
@@ -42,7 +42,7 @@ export function ProductCarousel({ products, title, subtitle }: Props) {
               type="button"
               onClick={() => setPage((value) => Math.min(maxPage, value + 1))}
               disabled={page === maxPage}
-              className="focus-ring rounded-full border border-stone p-2 disabled:opacity-40"
+              className="focus-ring hero-arrow-static rounded-full bg-white/95 p-2 disabled:opacity-40"
               aria-label="Next products"
             >
               <ChevronRight size={18} />

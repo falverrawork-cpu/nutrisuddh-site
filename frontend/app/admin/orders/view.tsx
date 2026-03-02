@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { apiFetch } from "@/lib/api";
+import { FormSubmission, Order } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUIStore } from "@/stores/ui-store";
-import { Order } from "@/lib/types";
 
 type Summary = {
   totalOrders: number;
@@ -23,6 +23,11 @@ type AdminUser = {
   phone: string;
   role: "user" | "admin";
   createdAt: string;
+};
+
+type ReplyDraft = {
+  subject: string;
+  message: string;
 };
 
 const ORDER_STATUSES = ["Order Confirmed", "Dispatched", "Delivered"] as const;
@@ -134,8 +139,9 @@ export function AdminOrdersView() {
   const user = useAuthStore((state) => state.user);
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [forms, setForms] = useState<FormSubmission[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [activeTab, setActiveTab] = useState<"users" | "orders">("orders");
+  const [activeTab, setActiveTab] = useState<"users" | "orders" | "forms" | "bulk">("orders");
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
@@ -143,21 +149,46 @@ export function AdminOrdersView() {
   const [savingUserId, setSavingUserId] = useState<number | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [replyingFormId, setReplyingFormId] = useState<number | null>(null);
+  const [deletingFormId, setDeletingFormId] = useState<number | null>(null);
+  const [replyDrafts, setReplyDrafts] = useState<Record<number, ReplyDraft>>({});
   const [loading, setLoading] = useState(true);
   const addToast = useUIStore((state) => state.addToast);
+
+  const bulkForms = useMemo(
+    () => forms.filter((form) => form.formType === "bulk"),
+    [forms]
+  );
+
+  const contactForms = useMemo(
+    () => forms.filter((form) => form.formType !== "bulk"),
+    [forms]
+  );
+
+  const formsCountLabel = useMemo(() => {
+    const newCount = contactForms.filter((form) => form.status !== "replied").length;
+    return newCount > 0 ? `Forms (${newCount})` : "Forms";
+  }, [contactForms]);
+
+  const bulkCountLabel = useMemo(() => {
+    const newCount = bulkForms.filter((form) => form.status !== "replied").length;
+    return newCount > 0 ? `Bulk Queries (${newCount})` : "Bulk Queries";
+  }, [bulkForms]);
 
   useEffect(() => {
     const run = async () => {
       if (!token) return;
       setLoading(true);
       try {
-        const [ordersResult, usersResult] = await Promise.all([
+        const [ordersResult, usersResult, formsResult] = await Promise.all([
           apiFetch<{ orders: Order[] }>("/api/admin/orders", {}, token),
-          apiFetch<{ users: AdminUser[] }>("/api/admin/users", {}, token)
+          apiFetch<{ users: AdminUser[] }>("/api/admin/users", {}, token),
+          apiFetch<{ forms: FormSubmission[] }>("/api/admin/forms", {}, token)
         ]);
         setOrders(ordersResult.orders);
         setSummary(summarizeOrders(ordersResult.orders));
         setUsers(usersResult.users);
+        setForms(formsResult.forms);
       } catch (error) {
         addToast(error instanceof Error ? error.message : "Unable to fetch admin dashboard.", "info");
       } finally {
@@ -274,6 +305,145 @@ export function AdminOrdersView() {
     }
   };
 
+  const updateReplyDraft = (formId: number, nextDraft: ReplyDraft) => {
+    setReplyDrafts((current) => ({
+      ...current,
+      [formId]: nextDraft
+    }));
+  };
+
+  const getReplyDraft = (form: FormSubmission): ReplyDraft => {
+    const existing = replyDrafts[form.id];
+    if (existing) return existing;
+    return {
+      subject: form.replySubject || (form.subject ? `Re: ${form.subject}` : "Regarding your enquiry with Nutri Suddh"),
+      message: form.replyMessage || ""
+    };
+  };
+
+  const sendFormReply = async (form: FormSubmission) => {
+    if (!token) return;
+    const draft = getReplyDraft(form);
+    if (!draft.subject.trim()) {
+      addToast("Reply subject is required.", "info");
+      return;
+    }
+    if (!draft.message.trim()) {
+      addToast("Reply message is required.", "info");
+      return;
+    }
+
+    setReplyingFormId(form.id);
+    try {
+      const result = await apiFetch<{ ok: true; form: FormSubmission }>(`/api/admin/forms/${form.id}/reply`, {
+        method: "POST",
+        body: JSON.stringify(draft)
+      }, token);
+
+      setForms((current) => current.map((item) => (item.id === form.id ? result.form : item)));
+      updateReplyDraft(form.id, {
+        subject: result.form.replySubject || draft.subject,
+        message: result.form.replyMessage || draft.message
+      });
+      addToast(`Reply sent to ${form.email}`);
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "Unable to send reply.", "info");
+    } finally {
+      setReplyingFormId(null);
+    }
+  };
+
+  const deleteFormQuery = async (form: FormSubmission) => {
+    if (!token) return;
+    if (form.status !== "replied") {
+      addToast("Only resolved queries can be deleted.", "info");
+      return;
+    }
+    if (!window.confirm("Delete this resolved query? This cannot be undone.")) return;
+
+    setDeletingFormId(form.id);
+    try {
+      await apiFetch<{ ok: true; formId: number }>(`/api/admin/forms/${form.id}`, {
+        method: "DELETE"
+      }, token);
+      setForms((current) => current.filter((item) => item.id !== form.id));
+      addToast("Query deleted successfully.");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "Unable to delete query.", "info");
+    } finally {
+      setDeletingFormId(null);
+    }
+  };
+
+  const renderFormsPanel = (targetForms: FormSubmission[], emptyMessage: string) => (
+    <article className="space-y-3">
+      {targetForms.length === 0 ? (
+        <div className="card-surface p-4 text-sm text-gray-600">{emptyMessage}</div>
+      ) : targetForms.map((form) => {
+        const draft = getReplyDraft(form);
+        return (
+          <div key={form.id} className="card-surface p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-ink">{form.name} ({form.email})</p>
+                <p className="text-xs text-gray-500">{form.formType.toUpperCase()} form • {new Date(form.createdAt).toLocaleString("en-IN")}</p>
+              </div>
+              <span className={`rounded-full border px-2 py-1 text-xs font-medium ${form.status === "replied" ? "border-pine/30 bg-pine/10 text-pine" : "border-amber-300 bg-amber-50 text-amber-700"}`}>
+                {form.status === "replied" ? "Replied" : "New"}
+              </span>
+            </div>
+
+            <div className="mt-3 grid gap-2 text-sm text-gray-700 sm:grid-cols-2">
+              <p><span className="font-medium text-ink">Phone:</span> {form.phone || "-"}</p>
+              <p><span className="font-medium text-ink">Subject:</span> {form.subject || "-"}</p>
+              <p><span className="font-medium text-ink">Company:</span> {form.company || "-"}</p>
+              <p><span className="font-medium text-ink">Country:</span> {form.country || "-"}</p>
+              <p className="sm:col-span-2"><span className="font-medium text-ink">Quantity:</span> {form.quantity || "-"}</p>
+              <p className="sm:col-span-2"><span className="font-medium text-ink">Message:</span> {form.message}</p>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-stone/70 bg-stone/20 p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">Reply to Customer</p>
+              <input
+                className="focus-ring mt-2 w-full rounded-md border border-stone px-3 py-2 text-sm"
+                placeholder="Reply subject"
+                value={draft.subject}
+                onChange={(event) => updateReplyDraft(form.id, { ...draft, subject: event.target.value })}
+              />
+              <textarea
+                className="focus-ring mt-2 min-h-24 w-full rounded-md border border-stone px-3 py-2 text-sm"
+                placeholder="Reply message"
+                value={draft.message}
+                onChange={(event) => updateReplyDraft(form.id, { ...draft, message: event.target.value })}
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => sendFormReply(form)}
+                  disabled={replyingFormId === form.id}
+                  className="focus-ring rounded-full border border-pine px-4 py-2 text-xs font-semibold text-pine disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {replyingFormId === form.id ? "Sending..." : "Send Reply"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteFormQuery(form)}
+                  disabled={form.status !== "replied" || deletingFormId === form.id}
+                  className="focus-ring rounded-full border border-red-300 px-4 py-2 text-xs font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {deletingFormId === form.id ? "Deleting..." : "Delete Query"}
+                </button>
+                {form.repliedAt ? (
+                  <p className="text-xs text-gray-500">Last replied: {new Date(form.repliedAt).toLocaleString("en-IN")}</p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </article>
+  );
+
   if (!token || !user) {
     return <Navigate to="/admin/login" replace />;
   }
@@ -284,8 +454,8 @@ export function AdminOrdersView() {
 
   return (
     <div>
-      <h1 className="font-display text-4xl">Admin Order Dashboard</h1>
-      <p className="mt-2 text-sm text-gray-600">Track all customer orders and summary in one place.</p>
+      <h1 className="font-display text-4xl">Admin Dashboard</h1>
+      <p className="mt-2 text-sm text-gray-600">Track orders, users, forms, and bulk queries in one place.</p>
 
       {summary && (
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -319,6 +489,24 @@ export function AdminOrdersView() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("forms")}
+            className={`focus-ring rounded-full border px-4 py-2 text-sm font-medium ${
+              activeTab === "forms" ? "border-pine bg-pine text-white" : "border-stone text-ink"
+            }`}
+          >
+            {formsCountLabel}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("bulk")}
+            className={`focus-ring rounded-full border px-4 py-2 text-sm font-medium ${
+              activeTab === "bulk" ? "border-pine bg-pine text-white" : "border-stone text-ink"
+            }`}
+          >
+            {bulkCountLabel}
+          </button>
+          <button
+            type="button"
             onClick={sendTestEmail}
             disabled={sendingTestEmail}
             className="focus-ring rounded-full border border-pine px-4 py-2 text-sm font-medium text-pine disabled:cursor-not-allowed disabled:opacity-50"
@@ -328,7 +516,7 @@ export function AdminOrdersView() {
         </div>
 
         {loading ? (
-          <p className="text-sm text-gray-600">Loading orders...</p>
+          <p className="text-sm text-gray-600">Loading admin data...</p>
         ) : activeTab === "users" ? (
           <article className="card-surface p-4">
             <h2 className="text-lg font-semibold">Registered Users</h2>
@@ -442,6 +630,10 @@ export function AdminOrdersView() {
               </div>
             )}
           </article>
+        ) : activeTab === "forms" ? (
+          renderFormsPanel(contactForms, "No contact form submissions yet.")
+        ) : activeTab === "bulk" ? (
+          renderFormsPanel(bulkForms, "No bulk queries yet.")
         ) : orders.length === 0 ? (
           <p className="text-sm text-gray-600">No orders yet.</p>
         ) : (

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { Eye, EyeOff, Heart, Menu, Moon, Package, ShoppingBag, Sun, User, X } from "lucide-react";
+import { Eye, EyeOff, Menu, Moon, Package, ShoppingBag, Sun, User, X } from "lucide-react";
 import { SearchTypeahead } from "@/components/common/search-typeahead";
 import { BrandLogo } from "@/components/common/brand-logo";
 import { useShopStore } from "@/stores/shop-store";
@@ -22,13 +22,13 @@ const shopCategories = [
     href: "/collections/all-products"
   },
   {
-    title: "Explore Our Range",
-    description: "Individual flavour packs (minimum order 3 packs).",
+    title: "Indivisual Flavours",
+    description: "Explore our range of Individual flavour packs",
     href: "/collections/flavoured-makhana"
   },
   {
-    title: "The Nutri Suddh Range",
-    description: "Combo of 3 packs curated for flavour variety.",
+    title: "Hot Combos",
+    description: "Eplore our range of Hot combos curated to your preferences.",
     href: "/collections/combos"
   }
 ];
@@ -42,7 +42,6 @@ export function SiteHeader() {
   const location = useLocation();
   const navigate = useNavigate();
   const cart = useShopStore((state) => state.cart);
-  const wishlist = useShopStore((state) => state.wishlist);
   const openCart = useUIStore((state) => state.openCart);
   const openMobileNav = useUIStore((state) => state.openMobileNav);
   const isAuthModalOpen = useUIStore((state) => state.isAuthModalOpen);
@@ -182,9 +181,6 @@ export function SiteHeader() {
             <div className="hidden sm:block">
               <IconButtonWithTooltip href="/orders" icon={<Package size={17} />} label="My orders" />
             </div>
-            <div className="hidden sm:block">
-              <IconWithCount href="#" icon={<Heart size={17} />} count={wishlist.length} label="Wishlist" />
-            </div>
             <button
               type="button"
               onClick={openCart}
@@ -278,10 +274,13 @@ function AccountAuthModal({
   addToast: (message: string, type?: "success" | "info") => void;
 }) {
   const [mounted, setMounted] = useState(false);
-  const [mode, setMode] = useState<"login" | "signup">("signup");
+  const [mode, setMode] = useState<"login" | "signup" | "forgot">("signup");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "+91", email: "", password: "" });
+  const [forgotStep, setForgotStep] = useState<"request" | "confirm">("request");
+  const [forgotForm, setForgotForm] = useState({ email: "", code: "", newPassword: "", confirmPassword: "" });
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   useEffect(() => {
     if (mode !== "signup") return;
@@ -292,11 +291,70 @@ function AccountAuthModal({
   }, [mode]);
 
   useEffect(() => {
+    if (mode !== "forgot") return;
+    setForgotForm((current) => ({
+      ...current,
+      email: current.email.trim() ? current.email : form.email
+    }));
+  }, [form.email, mode]);
+
+  useEffect(() => {
     setMounted(true);
   }, []);
 
   const submit = async () => {
     if (loading) return;
+    if (mode === "forgot") {
+      setLoading(true);
+      try {
+        if (forgotStep === "request") {
+          if (!forgotForm.email.trim()) {
+            addToast("Email is required.", "info");
+            return;
+          }
+          await apiFetch<{ ok: boolean; message: string }>("/api/auth/forgot-password/request", {
+            method: "POST",
+            body: JSON.stringify({ email: forgotForm.email })
+          });
+          addToast("If the email exists, reset code has been sent.");
+          setForgotStep("confirm");
+          return;
+        }
+
+        if (!forgotForm.code.trim()) {
+          addToast("Reset code is required.", "info");
+          return;
+        }
+        if (!forgotForm.newPassword.trim()) {
+          addToast("New password is required.", "info");
+          return;
+        }
+        if (forgotForm.newPassword !== forgotForm.confirmPassword) {
+          addToast("New password and confirm password do not match.", "info");
+          return;
+        }
+
+        await apiFetch<{ ok: boolean }>("/api/auth/forgot-password/confirm", {
+          method: "POST",
+          body: JSON.stringify({
+            email: forgotForm.email,
+            code: forgotForm.code,
+            newPassword: forgotForm.newPassword
+          })
+        });
+        addToast("Password reset successful. Please login.");
+        setMode("login");
+        setForgotStep("request");
+        setForm((current) => ({ ...current, email: forgotForm.email, password: "" }));
+        setForgotForm({ email: forgotForm.email, code: "", newPassword: "", confirmPassword: "" });
+      } catch (error) {
+        addToast(error instanceof Error ? error.message : "Unable to reset password.", "info");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (mode === "signup") {
       if (!form.name.trim()) {
         addToast("Name is required.", "info");
@@ -345,7 +403,7 @@ function AccountAuthModal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[90] p-4">
+    <div className="auth-popup-no-hover fixed inset-0 z-[90] p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
       <div className="relative flex min-h-full items-center justify-center">
         <div className="w-full max-w-md rounded-2xl border border-stone bg-white p-5 shadow-card">
@@ -378,14 +436,20 @@ function AccountAuthModal({
             <div className="mt-4 inline-flex rounded-full border border-stone bg-white p-1">
               <button
                 type="button"
-                onClick={() => setMode("signup")}
+                onClick={() => {
+                  setMode("signup");
+                  setForgotStep("request");
+                }}
                 className={`focus-ring rounded-full px-4 py-1.5 text-sm ${mode === "signup" ? "bg-pine text-white" : "text-gray-600"}`}
               >
                 Sign Up
               </button>
               <button
                 type="button"
-                onClick={() => setMode("login")}
+                onClick={() => {
+                  setMode("login");
+                  setForgotStep("request");
+                }}
                 className={`focus-ring rounded-full px-4 py-1.5 text-sm ${mode === "login" ? "bg-pine text-white" : "text-gray-600"}`}
               >
                 Login
@@ -393,7 +457,50 @@ function AccountAuthModal({
             </div>
 
             <div className="mt-4 grid gap-3">
-              {mode === "signup" && (
+              {mode === "forgot" ? (
+                <>
+                  <input
+                    value={forgotForm.email}
+                    onChange={(e) => setForgotForm((state) => ({ ...state, email: e.target.value }))}
+                    placeholder="Email"
+                    className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                  />
+                  {forgotStep === "confirm" && (
+                    <>
+                      <input
+                        value={forgotForm.code}
+                        onChange={(e) => setForgotForm((state) => ({ ...state, code: e.target.value }))}
+                        placeholder="Reset code"
+                        className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                      />
+                      <div className="relative">
+                        <input
+                          type={showForgotPassword ? "text" : "password"}
+                          value={forgotForm.newPassword}
+                          onChange={(e) => setForgotForm((state) => ({ ...state, newPassword: e.target.value }))}
+                          placeholder="New password"
+                          className="focus-ring w-full rounded-lg border border-stone px-3 py-2 pr-10 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowForgotPassword((value) => !value)}
+                          className="focus-ring no-hover-lift absolute right-2 inset-y-0 my-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500"
+                          aria-label={showForgotPassword ? "Hide password" : "Show password"}
+                        >
+                          {showForgotPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                      <input
+                        type={showForgotPassword ? "text" : "password"}
+                        value={forgotForm.confirmPassword}
+                        onChange={(e) => setForgotForm((state) => ({ ...state, confirmPassword: e.target.value }))}
+                        placeholder="Confirm new password"
+                        className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                      />
+                    </>
+                  )}
+                </>
+              ) : mode === "signup" ? (
                 <>
                   <input
                     value={form.name}
@@ -402,44 +509,101 @@ function AccountAuthModal({
                     className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
                   />
                   <input
+                    value={form.email}
+                    onChange={(e) => setForm((state) => ({ ...state, email: e.target.value }))}
+                    placeholder="Email"
+                    className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                  />
+                  <input
                     value={form.phone}
                     onChange={(e) => setForm((state) => ({ ...state, phone: e.target.value }))}
                     placeholder="Phone number"
                     className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
                   />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={form.password}
+                      onChange={(e) => setForm((state) => ({ ...state, password: e.target.value }))}
+                      placeholder="Password"
+                      className="focus-ring w-full rounded-lg border border-stone px-3 py-2 pr-10 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="focus-ring no-hover-lift absolute right-2 inset-y-0 my-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <input
+                    value={form.email}
+                    onChange={(e) => setForm((state) => ({ ...state, email: e.target.value }))}
+                    placeholder="Email"
+                    className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={form.password}
+                      onChange={(e) => setForm((state) => ({ ...state, password: e.target.value }))}
+                      placeholder="Password"
+                      className="focus-ring w-full rounded-lg border border-stone px-3 py-2 pr-10 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="focus-ring no-hover-lift absolute right-2 inset-y-0 my-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("forgot");
+                      setForgotStep("request");
+                      setForgotForm((current) => ({ ...current, email: form.email }));
+                    }}
+                    className="focus-ring -mt-1 w-fit rounded-full border border-stone px-3 py-1 text-xs text-gray-600"
+                  >
+                    Forgot Password?
+                  </button>
                 </>
               )}
-              <input
-                value={form.email}
-                onChange={(e) => setForm((state) => ({ ...state, email: e.target.value }))}
-                placeholder="Email"
-                className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
-              />
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={form.password}
-                  onChange={(e) => setForm((state) => ({ ...state, password: e.target.value }))}
-                  placeholder="Password"
-                  className="focus-ring w-full rounded-lg border border-stone px-3 py-2 pr-10 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  className="focus-ring absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-500"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
               <button
                 type="button"
                 onClick={submit}
                 disabled={loading}
                 className={`focus-ring rounded-full py-2 text-sm font-semibold ${loading ? "bg-gray-300 text-gray-600" : "bg-pine text-white"}`}
               >
-                {loading ? "Please wait..." : mode === "signup" ? "Sign Up" : "Login"}
+                {loading
+                  ? "Please wait..."
+                  : mode === "signup"
+                    ? "Sign Up"
+                    : mode === "forgot"
+                      ? forgotStep === "request"
+                        ? "Send Reset Code"
+                        : "Reset Password"
+                      : "Login"}
               </button>
+              {mode === "forgot" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("login");
+                    setForgotStep("request");
+                  }}
+                  className="focus-ring rounded-full border border-stone py-2 text-sm font-semibold text-gray-700"
+                >
+                  Back to Login
+                </button>
+              )}
             </div>
           </>
         )}

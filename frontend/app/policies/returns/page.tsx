@@ -18,8 +18,8 @@ export default function ReturnsPolicyPage() {
         <section>
           <h2 className="text-lg font-semibold text-ink">Refund Eligibility</h2>
           <p className="mt-2">
-            A refund is considered only if you receive a damaged or expired product and share a clear unboxing video as
-            proof within 7 days of purchase.
+            You are only Eligible for return if you share a video opening the box and receive a damaged/expired
+            product and mail to us within 48 hours of delivery.
           </p>
         </section>
 

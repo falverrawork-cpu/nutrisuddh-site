@@ -2,13 +2,23 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import { getRazorpayClient, getRazorpayPublicKey, verifyRazorpaySignature } from "./lib/razorpay";
 import { ensureAdminUser } from "./lib/bootstrap";
 import { db } from "./lib/db";
 import { AuthRequest, requireAdmin, requireAuth, signAuthToken } from "./lib/auth";
-import { sendAdminTestEmail, sendOrderConfirmationEmails, sendOrderStatusUpdateEmail, type MailOrder } from "./lib/email";
+import {
+  sendAdminTestEmail,
+  sendFormSubmissionNotificationEmail,
+  sendFormReplyEmail,
+  sendOrderConfirmationEmails,
+  sendOrderStatusUpdateEmail,
+  sendPasswordResetCodeEmail,
+  type MailOrder
+} from "./lib/email";
 
 type Role = "user" | "admin";
+type FormType = "contact" | "bulk";
 
 type OrderInputItem = {
   productId: string;
@@ -64,9 +74,41 @@ const getUserById = db.prepare(
 const getUserWithPasswordById = db.prepare(
   "SELECT id, name, email, phone, password_hash, role FROM users WHERE id = ?"
 );
+const insertPasswordResetToken = db.prepare(
+  `INSERT INTO password_reset_tokens (user_id, email, token_hash, expires_at, created_at)
+   VALUES (?, ?, ?, ?, ?)`
+);
+const markPasswordResetTokensUsedByEmail = db.prepare(
+  "UPDATE password_reset_tokens SET used_at = ? WHERE email = ? AND used_at IS NULL"
+);
+const getLatestActivePasswordResetTokenByEmail = db.prepare(
+  `SELECT id, user_id, email, token_hash, expires_at
+   FROM password_reset_tokens
+   WHERE email = ?
+     AND used_at IS NULL
+     AND datetime(expires_at) > datetime('now')
+   ORDER BY datetime(created_at) DESC
+   LIMIT 1`
+);
+const markPasswordResetTokenUsedById = db.prepare(
+  "UPDATE password_reset_tokens SET used_at = ? WHERE id = ?"
+);
+const insertFormSubmission = db.prepare(
+  `INSERT INTO form_submissions (
+    form_type, name, email, phone, subject, company, country, quantity, message, status, created_at
+   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?)`
+);
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function getResetCodeHash(email: string, code: string) {
+  return crypto.createHash("sha256").update(`${normalizeEmail(email)}:${code}`).digest("hex");
+}
+
+function getResetCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 function serializeOrderRows(orderRows: any[], itemRows: any[]) {
@@ -130,6 +172,26 @@ function toMailOrder(order: any, items: OrderInputItem[] | any[]): MailOrder {
   };
 }
 
+function mapFormSubmission(row: any) {
+  return {
+    id: row.id,
+    formType: row.form_type as FormType,
+    name: row.name,
+    email: row.email,
+    phone: row.phone ?? "",
+    subject: row.subject ?? "",
+    company: row.company ?? "",
+    country: row.country ?? "",
+    quantity: row.quantity ?? "",
+    message: row.message,
+    status: row.status,
+    replySubject: row.reply_subject ?? "",
+    replyMessage: row.reply_message ?? "",
+    repliedAt: row.replied_at ?? null,
+    createdAt: row.created_at
+  };
+}
+
 async function runDailyOrderStatusEmails() {
   const candidates = db
     .prepare(
@@ -178,6 +240,122 @@ function startDailyOrderStatusEmailScheduler() {
   run();
   setInterval(run, 60 * 60 * 1000);
 }
+
+app.post("/api/forms/contact", (req, res) => {
+  try {
+    const body = req.body as {
+      name?: string;
+      email?: string;
+      phone?: string;
+      subject?: string;
+      message?: string;
+    };
+
+    const name = body.name?.trim() ?? "";
+    const email = body.email ? normalizeEmail(body.email) : "";
+    const phone = body.phone?.trim() ?? "";
+    const subject = body.subject?.trim() ?? "";
+    const message = body.message?.trim() ?? "";
+
+    if (!name) return res.status(400).json({ error: "Name is required." });
+    if (!email || !email.includes("@")) return res.status(400).json({ error: "Valid email is required." });
+    if (!message) return res.status(400).json({ error: "Message is required." });
+
+    const createdAt = new Date().toISOString();
+
+    insertFormSubmission.run(
+      "contact",
+      name,
+      email,
+      phone || null,
+      subject || null,
+      null,
+      null,
+      null,
+      message,
+      createdAt
+    );
+
+    sendFormSubmissionNotificationEmail({
+      formType: "contact",
+      name,
+      email,
+      phone,
+      subject,
+      message,
+      createdAt
+    }).catch((error) => {
+      console.error("Contact form notification email failed", error);
+    });
+
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error("Contact form submission failed", error);
+    return res.status(500).json({ error: "Unable to submit contact form." });
+  }
+});
+
+app.post("/api/forms/bulk", (req, res) => {
+  try {
+    const body = req.body as {
+      name?: string;
+      company?: string;
+      email?: string;
+      phone?: string;
+      country?: string;
+      quantity?: string;
+      message?: string;
+    };
+
+    const name = body.name?.trim() ?? "";
+    const company = body.company?.trim() ?? "";
+    const email = body.email ? normalizeEmail(body.email) : "";
+    const phone = body.phone?.trim() ?? "";
+    const country = body.country?.trim() ?? "";
+    const quantity = body.quantity?.trim() ?? "";
+    const message = body.message?.trim() ?? "";
+
+    if (!name) return res.status(400).json({ error: "Name is required." });
+    if (!company) return res.status(400).json({ error: "Company is required." });
+    if (!email || !email.includes("@")) return res.status(400).json({ error: "Valid email is required." });
+    if (!phone) return res.status(400).json({ error: "Phone number is required." });
+
+    const createdAt = new Date().toISOString();
+
+    insertFormSubmission.run(
+      "bulk",
+      name,
+      email,
+      phone,
+      "Wholesale / Bulk enquiry",
+      company,
+      country || null,
+      quantity || null,
+      message || "Bulk enquiry submitted from website.",
+      createdAt
+    );
+
+    sendFormSubmissionNotificationEmail({
+      formType: "bulk",
+      name,
+      email,
+      phone,
+      subject: "Wholesale / Bulk enquiry",
+      company,
+      country,
+      quantity,
+      message: message || "Bulk enquiry submitted from website.",
+      createdAt
+    }).catch((error) => {
+      console.error("Bulk form notification email failed", error);
+    });
+
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error("Bulk form submission failed", error);
+    return res.status(500).json({ error: "Unable to submit bulk form." });
+  }
+});
 
 app.post("/api/auth/signup", async (req, res) => {
   try {
@@ -267,6 +445,89 @@ app.post("/api/auth/login", async (req, res) => {
   } catch (error) {
     console.error("Login failed", error);
     return res.status(500).json({ error: "Unable to login." });
+  }
+});
+
+app.post("/api/auth/forgot-password/request", async (req, res) => {
+  try {
+    const body = req.body as { email?: string };
+    const email = body.email ? normalizeEmail(body.email) : "";
+
+    if (!email || !email.includes("@")) {
+      return res.status(400).json({ error: "Valid email is required." });
+    }
+
+    const user = getUserByEmail.get(email) as
+      | { id: number; name: string; email: string; phone: string | null; role: Role; password_hash: string }
+      | undefined;
+
+    if (user) {
+      const code = getResetCode();
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
+
+      markPasswordResetTokensUsedByEmail.run(now.toISOString(), email);
+      insertPasswordResetToken.run(
+        user.id,
+        email,
+        getResetCodeHash(email, code),
+        expiresAt.toISOString(),
+        now.toISOString()
+      );
+
+      await sendPasswordResetCodeEmail(email, code);
+    }
+
+    return res.json({ ok: true, message: "If this email exists, a reset code has been sent." });
+  } catch (error) {
+    console.error("Forgot password request failed", error);
+    return res.status(500).json({ error: "Unable to process forgot password request." });
+  }
+});
+
+app.post("/api/auth/forgot-password/confirm", async (req, res) => {
+  try {
+    const body = req.body as { email?: string; code?: string; newPassword?: string };
+    const email = body.email ? normalizeEmail(body.email) : "";
+    const code = (body.code ?? "").trim();
+    const newPassword = body.newPassword ?? "";
+
+    if (!email || !email.includes("@")) {
+      return res.status(400).json({ error: "Valid email is required." });
+    }
+
+    if (!code || code.length < 6) {
+      return res.status(400).json({ error: "Valid reset code is required." });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: "New password must be at least 6 characters." });
+    }
+
+    const tokenRow = getLatestActivePasswordResetTokenByEmail.get(email) as
+      | { id: number; user_id: number; email: string; token_hash: string; expires_at: string }
+      | undefined;
+
+    if (!tokenRow) {
+      return res.status(400).json({ error: "Reset code is invalid or expired." });
+    }
+
+    const codeHash = getResetCodeHash(email, code);
+    if (tokenRow.token_hash !== codeHash) {
+      return res.status(400).json({ error: "Reset code is invalid or expired." });
+    }
+
+    const nextHash = await bcrypt.hash(newPassword, 10);
+    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(nextHash, tokenRow.user_id);
+
+    const usedAt = new Date().toISOString();
+    markPasswordResetTokenUsedById.run(usedAt, tokenRow.id);
+    markPasswordResetTokensUsedByEmail.run(usedAt, email);
+
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error("Forgot password confirm failed", error);
+    return res.status(500).json({ error: "Unable to reset password." });
   }
 });
 
@@ -591,6 +852,103 @@ app.get("/api/admin/users", requireAuth, requireAdmin, (_req, res) => {
   } catch (error) {
     console.error("Fetch admin users failed", error);
     return res.status(500).json({ error: "Unable to fetch users." });
+  }
+});
+
+app.get("/api/admin/forms", requireAuth, requireAdmin, (_req, res) => {
+  try {
+    const rows = db
+      .prepare(
+        `SELECT id, form_type, name, email, phone, subject, company, country, quantity, message, status, reply_subject, reply_message, replied_at, created_at
+         FROM form_submissions
+         ORDER BY datetime(created_at) DESC, id DESC`
+      )
+      .all() as any[];
+
+    return res.json({ forms: rows.map(mapFormSubmission) });
+  } catch (error) {
+    console.error("Fetch admin forms failed", error);
+    return res.status(500).json({ error: "Unable to fetch forms." });
+  }
+});
+
+app.post("/api/admin/forms/:formId/reply", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const formId = Number(req.params.formId);
+    if (!Number.isInteger(formId) || formId <= 0) {
+      return res.status(400).json({ error: "Invalid form id." });
+    }
+
+    const body = req.body as { subject?: string; message?: string };
+    const subject = body.subject?.trim() ?? "";
+    const message = body.message?.trim() ?? "";
+
+    if (!subject) return res.status(400).json({ error: "Reply subject is required." });
+    if (!message) return res.status(400).json({ error: "Reply message is required." });
+
+    const form = db
+      .prepare("SELECT id, name, email FROM form_submissions WHERE id = ?")
+      .get(formId) as { id: number; name: string; email: string } | undefined;
+
+    if (!form) return res.status(404).json({ error: "Form not found." });
+
+    const sent = await sendFormReplyEmail({
+      toEmail: form.email,
+      toName: form.name,
+      subject,
+      message
+    });
+
+    if (!sent) {
+      return res.status(500).json({ error: "Unable to send reply email. Please check SMTP settings." });
+    }
+
+    const repliedAt = new Date().toISOString();
+    db.prepare(
+      `UPDATE form_submissions
+       SET status = 'replied', reply_subject = ?, reply_message = ?, replied_at = ?
+       WHERE id = ?`
+    ).run(subject, message, repliedAt, formId);
+
+    const updated = db
+      .prepare(
+        `SELECT id, form_type, name, email, phone, subject, company, country, quantity, message, status, reply_subject, reply_message, replied_at, created_at
+         FROM form_submissions
+         WHERE id = ?`
+      )
+      .get(formId) as any;
+
+    return res.json({ ok: true, form: mapFormSubmission(updated) });
+  } catch (error) {
+    console.error("Reply to form failed", error);
+    return res.status(500).json({ error: "Unable to send form reply." });
+  }
+});
+
+app.delete("/api/admin/forms/:formId", requireAuth, requireAdmin, (req, res) => {
+  try {
+    const formId = Number(req.params.formId);
+    if (!Number.isInteger(formId) || formId <= 0) {
+      return res.status(400).json({ error: "Invalid form id." });
+    }
+
+    const existing = db
+      .prepare("SELECT id, status FROM form_submissions WHERE id = ?")
+      .get(formId) as { id: number; status: string } | undefined;
+
+    if (!existing) {
+      return res.status(404).json({ error: "Form not found." });
+    }
+
+    if (existing.status !== "replied") {
+      return res.status(400).json({ error: "Only resolved queries can be deleted." });
+    }
+
+    db.prepare("DELETE FROM form_submissions WHERE id = ?").run(formId);
+    return res.json({ ok: true, formId });
+  } catch (error) {
+    console.error("Delete form failed", error);
+    return res.status(500).json({ error: "Unable to delete form." });
   }
 });
 

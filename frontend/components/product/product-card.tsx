@@ -3,7 +3,6 @@
 import Image from "@/components/common/app-image";
 import Link from "@/components/common/app-link";
 import { motion } from "framer-motion";
-import { Heart } from "lucide-react";
 import { Product } from "@/lib/types";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useShopStore } from "@/stores/shop-store";
@@ -16,14 +15,10 @@ type Props = {
 
 export function ProductCard({ product }: Props) {
   const addToCart = useShopStore((state) => state.addToCart);
-  const toggleWishlist = useShopStore((state) => state.toggleWishlist);
-  const wishlist = useShopStore((state) => state.wishlist);
   const addToast = useUIStore((state) => state.addToast);
   const openCart = useUIStore((state) => state.openCart);
   const openAuthModal = useUIStore((state) => state.openAuthModal);
   const token = useAuthStore((state) => state.token);
-
-  const inWishlist = wishlist.includes(product.id);
   const isComboPack = product.tags.includes("combo-pack");
 
   return (
@@ -57,22 +52,6 @@ export function ProductCard({ product }: Props) {
               {badge}
             </span>
           ))}
-        </div>
-        <div className="absolute right-2 top-2 flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              toggleWishlist(product.id);
-              addToast(inWishlist ? "Removed from wishlist" : "Added to wishlist", "info");
-            }}
-            aria-label="Toggle wishlist"
-            className={cn(
-              "focus-ring rounded-full border border-stone bg-white p-2",
-              inWishlist && "border-pine text-pine"
-            )}
-          >
-            <Heart size={15} fill={inWishlist ? "currentColor" : "none"} />
-          </button>
         </div>
       </div>
 

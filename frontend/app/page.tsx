@@ -23,13 +23,13 @@ export default function HomePage() {
       />
       <ProductCarousel
         products={comboProducts}
-        title="Explore Our Range"
+        title="Indivisual Flavours"
         subtitle="Combo of 3 and curated flavour bundles for variety snacking."
       />
       <ComboPromo />
       <TrustStrip />
-      <BulkSection />
       <DIYDelights />
+      <BulkSection />
       <TestimonialsSlider />
     </>
   );

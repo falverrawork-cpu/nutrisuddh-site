@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, Minus, Plus, Star } from "lucide-react";
+import { Minus, Plus, Star } from "lucide-react";
 import { Product } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { useShopStore } from "@/stores/shop-store";
@@ -12,17 +12,13 @@ import { useAuthStore } from "@/stores/auth-store";
 export function ProductPurchase({ product, images }: { product: Product; images?: string[] }) {
   const [variantId, setVariantId] = useState(product.variants[0].id);
   const [quantity, setQuantity] = useState(1);
-
-  const toggleWishlist = useShopStore((state) => state.toggleWishlist);
   const addToCart = useShopStore((state) => state.addToCart);
-  const wishlist = useShopStore((state) => state.wishlist);
   const openCart = useUIStore((state) => state.openCart);
   const addToast = useUIStore((state) => state.addToast);
   const openAuthModal = useUIStore((state) => state.openAuthModal);
   const token = useAuthStore((state) => state.token);
 
   const variant = product.variants.find((value) => value.id === variantId) ?? product.variants[0];
-  const inWishlist = wishlist.includes(product.id);
   const galleryImages = images && images.length > 0 ? images : product.images;
 
   return (
@@ -99,19 +95,6 @@ export function ProductPurchase({ product, images }: { product: Product; images?
           <button type="button" className="focus-ring mt-3 w-full rounded-full border border-pine py-2 text-sm font-semibold text-pine">
             Buy now
           </button>
-
-          <div className="mt-4 flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                toggleWishlist(product.id);
-                addToast(inWishlist ? "Removed from wishlist" : "Added to wishlist", "info");
-              }}
-              className={`focus-ring rounded-full border px-4 py-2 text-xs ${inWishlist ? "border-pine text-pine" : "border-stone"}`}
-            >
-              <span className="inline-flex items-center gap-1"><Heart size={13} /> Wishlist</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>

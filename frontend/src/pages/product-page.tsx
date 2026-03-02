@@ -4,6 +4,7 @@ import NotFound from "@/app/not-found";
 import { ProductPurchase } from "@/components/product/product-purchase";
 import { ProductDetailContent } from "@/components/product/product-detail-content";
 import { ProductCard } from "@/components/product/product-card";
+import { ComboFlavoursGrid } from "@/components/product/combo-flavours-grid";
 import { products } from "@/data/products";
 import { getProductBySlug, getRelatedProducts } from "@/lib/catalog";
 import { Product } from "@/lib/types";
@@ -43,7 +44,10 @@ export function ProductPage() {
 
   const galleryImages = useMemo(() => {
     if (!product) return [];
-    return Array.from(new Set([...product.images, ...includedFlavours.flatMap((flavour) => flavour.images.slice(0, 5))]));
+    const comboFlavourPreviewImages = product.tags.includes("combo-pack")
+      ? includedFlavours.flatMap((flavour) => flavour.images.slice(0, 1))
+      : includedFlavours.flatMap((flavour) => flavour.images.slice(0, 5));
+    return Array.from(new Set([...product.images, ...comboFlavourPreviewImages]));
   }, [includedFlavours, product]);
 
   if (!product) {
@@ -83,6 +87,12 @@ export function ProductPage() {
       <section>
         <ProductDetailContent product={product} />
       </section>
+
+      {product.tags.includes("combo-pack") && includedFlavours.length > 0 && (
+        <section>
+          <ComboFlavoursGrid flavours={includedFlavours} />
+        </section>
+      )}
 
       <section className="mt-16 sm:mt-20">
         <h2 className="font-display text-3xl">Related Products</h2>

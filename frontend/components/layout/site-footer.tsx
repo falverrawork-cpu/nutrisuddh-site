@@ -9,7 +9,9 @@ export function SiteFooter() {
         <div className="lg:col-span-2">
           <BrandLogo className="inline-flex items-center" imageClassName="h-20 w-auto object-contain sm:h-24" />
           <p className="mt-3 max-w-md text-sm text-gray-600">
-            Simple. Healthy. Delicious. Nutri Suddh brings you clean, premium makhana crafted for everyday mindful
+            Simple. Healthy. Delicious.
+            <br />
+            Nutri Suddh brings you clean, premium makhana crafted for everyday mindful
             snacking.
           </p>
         </div>

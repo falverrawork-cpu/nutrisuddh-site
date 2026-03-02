@@ -1,13 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { bulkSection } from "@/data/homepage";
-
-const bulkEmail = "sales@nsagrooverseas.com";
+import { apiFetch } from "@/lib/api";
+import { useUIStore } from "@/stores/ui-store";
 
 export function BulkSection() {
+  const location = useLocation();
+  const addToast = useUIStore((state) => state.addToast);
   const [open, setOpen] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: "",
     company: "",
@@ -17,6 +22,12 @@ export function BulkSection() {
     quantity: "",
     message: ""
   });
+
+  useEffect(() => {
+    if (location.hash === "#bulk-quote") {
+      setOpen(true);
+    }
+  }, [location.hash]);
 
   return (
     <section id="bulk-quote" className="container-base mt-14">
@@ -56,14 +67,30 @@ export function BulkSection() {
             </div>
             <form
               className="grid gap-3 sm:grid-cols-2"
-              onSubmit={(event) => {
+              onSubmit={async (event) => {
                 event.preventDefault();
-                const subject = encodeURIComponent(`Bulk Enquiry - ${form.company || form.name}`);
-                const body = encodeURIComponent(
-                  `Name: ${form.name}\nCompany: ${form.company}\nEmail: ${form.email}\nPhone: ${form.phone}\nCountry: ${form.country}\nRequired Quantity: ${form.quantity}\n\nMessage:\n${form.message}`
-                );
-                window.location.href = `mailto:${bulkEmail}?subject=${subject}&body=${body}`;
-                setOpen(false);
+                setIsSubmitting(true);
+                try {
+                  await apiFetch<{ ok: true }>("/api/forms/bulk", {
+                    method: "POST",
+                    body: JSON.stringify(form)
+                  });
+                  setForm({
+                    name: "",
+                    company: "",
+                    email: "",
+                    phone: "",
+                    country: "",
+                    quantity: "",
+                    message: ""
+                  });
+                  setOpen(false);
+                  setShowSuccessPopup(true);
+                } catch (error) {
+                  addToast(error instanceof Error ? error.message : "Unable to submit enquiry.", "info");
+                } finally {
+                  setIsSubmitting(false);
+                }
               }}
             >
               <input required placeholder="Full name" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
@@ -73,10 +100,32 @@ export function BulkSection() {
               <input placeholder="Country" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" value={form.country} onChange={(event) => setForm((current) => ({ ...current, country: event.target.value }))} />
               <input placeholder="Approx quantity requirement" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))} />
               <textarea placeholder="Wholesale / bulk requirements" className="focus-ring min-h-28 rounded-lg border border-stone px-3 py-2 text-sm sm:col-span-2" value={form.message} onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))} />
-              <button type="submit" className="focus-ring rounded-full bg-pine px-5 py-2 text-sm font-semibold text-white sm:col-span-2 sm:w-fit">
-                Send Enquiry
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="focus-ring rounded-full bg-pine px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2 sm:w-fit"
+              >
+                {isSubmitting ? "Sending..." : "Send Enquiry"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showSuccessPopup && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-card">
+            <h3 className="font-display text-2xl text-ink">Thank You</h3>
+            <p className="mt-3 text-sm text-gray-700">
+              Thank you for your request! Our Team will contact you within 24-48 hours.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowSuccessPopup(false)}
+              className="focus-ring mt-5 rounded-full bg-pine px-5 py-2 text-sm font-semibold text-white"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

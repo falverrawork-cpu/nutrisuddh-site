@@ -2,14 +2,17 @@ import { Reveal } from "@/components/common/reveal";
 
 const ideas = [
   {
+    icon: "🥗",
     title: "Masala Chaat Bowl",
     copy: "Toss makhana with chopped onion, tomato, coriander, lemon, and a pinch of chaat masala."
   },
   {
+    icon: "🥣",
     title: "Yogurt Crunch Topper",
     copy: "Add roasted makhana over chilled curd with mint and roasted cumin for a quick savoury bowl."
   },
   {
+    icon: "🥜",
     title: "Tea-Time Trail Mix",
     copy: "Mix makhana with roasted nuts, curry leaves, and mild spices for a light evening snack."
   }
@@ -29,8 +32,11 @@ export function DIYDelights() {
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {ideas.map((idea) => (
-              <div key={idea.title} className="rounded-2xl border border-stone/80 bg-sand/40 p-4">
-                <p className="text-sm font-semibold text-ink">{idea.title}</p>
+              <div key={idea.title} className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-stone/80 bg-sand/40 p-5 text-center">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl shadow-sm">
+                  {idea.icon}
+                </span>
+                <p className="mt-3 text-sm font-semibold text-ink">{idea.title}</p>
                 <p className="mt-2 text-sm leading-6 text-gray-700">{idea.copy}</p>
               </div>
             ))}

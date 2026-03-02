@@ -32,6 +32,7 @@ const SMTP_PORT = Number(process.env.SMTP_PORT ?? 587);
 const SMTP_SECURE = String(process.env.SMTP_SECURE ?? "false").toLowerCase() === "true";
 const SMTP_USER = process.env.SMTP_USER?.trim() ?? "";
 const SMTP_PASS = process.env.SMTP_PASS?.trim() ?? "";
+const SMTP_URL = process.env.SMTP_URL?.trim() ?? "";
 const SMTP_FROM = process.env.SMTP_FROM?.trim() || SMTP_USER;
 const ADMIN_NOTIFICATION_EMAIL =
   process.env.ADMIN_NOTIFICATION_EMAIL?.trim() ||
@@ -41,6 +42,8 @@ const ADMIN_NOTIFICATION_EMAIL =
 let transporter: nodemailer.Transporter | null = null;
 let resolvedHostLabel = "";
 let emailReadyLogged = false;
+let emailNotConfiguredLogged = false;
+let lastEmailError = "";
 
 function escapeHtml(value: string) {
   return value
@@ -98,8 +101,12 @@ function getSmtpCandidates() {
 
   push("smtp.gmail.com", 465, true);
   push("smtp.gmail.com", 587, false);
+  push("smtp.titan.email", 465, true);
+  push("smtp.titan.email", 587, false);
   push("smtp.zoho.in", 465, true);
+  push("smtp.zoho.in", 587, false);
   push("smtp.zoho.com", 465, true);
+  push("smtp.zoho.com", 587, false);
   push("smtp.office365.com", 587, false);
   push("smtpout.secureserver.net", 465, true);
   push("smtpout.secureserver.net", 587, false);
@@ -113,11 +120,34 @@ function getSmtpCandidates() {
 }
 
 async function getTransporter() {
-  if (!SMTP_USER || !SMTP_PASS || !SMTP_FROM) {
+  if (!SMTP_FROM || ((!SMTP_URL || !SMTP_URL.includes("://")) && (!SMTP_USER || !SMTP_PASS))) {
+    if (!emailNotConfiguredLogged) {
+      console.warn("[email] SMTP not configured. Set SMTP_URL or SMTP_USER/SMTP_PASS/SMTP_FROM.");
+      emailNotConfiguredLogged = true;
+    }
     return null;
   }
   if (transporter) {
     return transporter;
+  }
+
+  if (SMTP_URL) {
+    const urlTransport = nodemailer.createTransport(SMTP_URL);
+    try {
+      await urlTransport.verify();
+      transporter = urlTransport;
+      resolvedHostLabel = "SMTP_URL";
+      if (!emailReadyLogged) {
+        console.log("[email] SMTP enabled with SMTP_URL");
+        emailReadyLogged = true;
+      }
+      return transporter;
+    } catch (error) {
+      const message = error instanceof Error ? `${(error as any).code ?? "ERR"} ${error.message}` : "ERR Unknown error";
+      lastEmailError = `SMTP connection failed for SMTP_URL. ${message}`;
+      console.error(`[email] ${lastEmailError}`);
+      return null;
+    }
   }
 
   const candidates = getSmtpCandidates();
@@ -157,7 +187,9 @@ async function getTransporter() {
   }
 
   const shortFailure = failures.slice(0, 4).join(" | ");
-  throw new Error(`SMTP connection failed. Checked ${candidates.length} host(s). ${shortFailure}`);
+  lastEmailError = `SMTP connection failed. Checked ${candidates.length} host(s). ${shortFailure}`;
+  console.error(`[email] ${lastEmailError}`);
+  return null;
 }
 
 export function isEmailDeliverable(email?: string | null) {
@@ -273,7 +305,13 @@ export async function sendOrderConfirmationEmails(order: MailOrder) {
     );
   }
 
-  await Promise.all(tasks);
+  try {
+    await Promise.all(tasks);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown email error";
+    lastEmailError = message;
+    console.error("[email] Order confirmation send failed", error);
+  }
 }
 
 export async function sendOrderStatusUpdateEmail(order: MailOrder) {
@@ -283,19 +321,53 @@ export async function sendOrderStatusUpdateEmail(order: MailOrder) {
 
   const address = `${order.addressLine1 ?? "-"}, ${order.addressLine2 ?? "-"} - ${order.pinCode ?? "-"}`;
 
-  await mailer.sendMail({
-    from: SMTP_FROM,
-    to: order.customerEmail as string,
-    subject: `Order Status Update: ${order.id} (${order.status})`,
-    html: `
-      <p>Hi ${escapeHtml(order.customerName ?? "Customer")},</p>
-      <p>Your order <strong>${escapeHtml(order.id)}</strong> status is currently:</p>
-      <p><strong>${escapeHtml(order.status)}</strong></p>
-      <p><strong>Expected Delivery:</strong> ${escapeHtml(formatDateTime(order.expectedDeliveryDate))}</p>
-      <p><strong>Delivery Address:</strong> ${escapeHtml(address)}</p>
-      <p>We will continue sending daily status updates until your order is delivered.</p>
-    `
-  });
+  try {
+    await mailer.sendMail({
+      from: SMTP_FROM,
+      to: order.customerEmail as string,
+      subject: `Order Status Update: ${order.id} (${order.status})`,
+      html: `
+        <p>Hi ${escapeHtml(order.customerName ?? "Customer")},</p>
+        <p>Your order <strong>${escapeHtml(order.id)}</strong> status is currently:</p>
+        <p><strong>${escapeHtml(order.status)}</strong></p>
+        <p><strong>Expected Delivery:</strong> ${escapeHtml(formatDateTime(order.expectedDeliveryDate))}</p>
+        <p><strong>Delivery Address:</strong> ${escapeHtml(address)}</p>
+        <p>We will continue sending daily status updates until your order is delivered.</p>
+      `
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown email error";
+    lastEmailError = message;
+    console.error("[email] Order status update send failed", error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function sendPasswordResetCodeEmail(recipientEmail: string, code: string) {
+  const mailer = await getTransporter();
+  if (!mailer) return false;
+  if (!isEmailDeliverable(recipientEmail)) return false;
+
+  try {
+    await mailer.sendMail({
+      from: SMTP_FROM,
+      to: recipientEmail,
+      subject: "Nutri Suddh Password Reset Code",
+      html: `
+        <p>Your password reset code is:</p>
+        <p style="font-size:20px;font-weight:700;letter-spacing:1px;">${escapeHtml(code)}</p>
+        <p>This code will expire in 15 minutes.</p>
+        <p>If you did not request this, you can ignore this email.</p>
+      `
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown email error";
+    lastEmailError = message;
+    console.error("[email] Password reset email failed", error);
+    return false;
+  }
 
   return true;
 }
@@ -303,21 +375,108 @@ export async function sendOrderStatusUpdateEmail(order: MailOrder) {
 export async function sendAdminTestEmail() {
   const mailer = await getTransporter();
   if (!mailer) {
-    throw new Error("SMTP is not configured. Please set SMTP_HOST, SMTP_USER, SMTP_PASS, and SMTP_FROM.");
+    const details = lastEmailError ? ` Last error: ${lastEmailError}` : "";
+    throw new Error(`SMTP is not configured or reachable. Please check SMTP settings.${details}`);
   }
   if (!isEmailDeliverable(ADMIN_NOTIFICATION_EMAIL)) {
     throw new Error("ADMIN_NOTIFICATION_EMAIL is invalid.");
   }
 
-  await mailer.sendMail({
-    from: SMTP_FROM,
-    to: ADMIN_NOTIFICATION_EMAIL,
-    subject: "Nutri Suddh SMTP Test Email",
-    html: `
-      <p>This is a test email from Nutri Suddh backend.</p>
-      <p><strong>SMTP Route:</strong> ${escapeHtml(resolvedHostLabel || "auto-detected")}</p>
-      <p><strong>Time:</strong> ${escapeHtml(new Date().toLocaleString("en-IN"))}</p>
-      <p>If you received this, SMTP configuration is working.</p>
-    `
-  });
+  try {
+    await mailer.sendMail({
+      from: SMTP_FROM,
+      to: ADMIN_NOTIFICATION_EMAIL,
+      subject: "Nutri Suddh SMTP Test Email",
+      html: `
+        <p>This is a test email from Nutri Suddh backend.</p>
+        <p><strong>SMTP Route:</strong> ${escapeHtml(resolvedHostLabel || "auto-detected")}</p>
+        <p><strong>Time:</strong> ${escapeHtml(new Date().toLocaleString("en-IN"))}</p>
+        <p>If you received this, SMTP configuration is working.</p>
+      `
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown email error";
+    lastEmailError = message;
+    throw new Error(`Unable to send test email. ${message}`);
+  }
+}
+
+export async function sendFormReplyEmail(params: {
+  toEmail: string;
+  toName?: string | null;
+  subject: string;
+  message: string;
+}) {
+  const mailer = await getTransporter();
+  if (!mailer) return false;
+  if (!isEmailDeliverable(params.toEmail)) return false;
+
+  try {
+    await mailer.sendMail({
+      from: SMTP_FROM,
+      to: params.toEmail,
+      subject: params.subject,
+      html: `
+        <p>Hi ${escapeHtml(params.toName?.trim() || "Customer")},</p>
+        <p>${escapeHtml(params.message).replaceAll("\n", "<br/>")}</p>
+        <p>Regards,<br/>Nutri Suddh Team</p>
+      `
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown email error";
+    lastEmailError = message;
+    console.error("[email] Form reply send failed", error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function sendFormSubmissionNotificationEmail(params: {
+  formType: "contact" | "bulk";
+  name: string;
+  email: string;
+  phone?: string | null;
+  subject?: string | null;
+  company?: string | null;
+  country?: string | null;
+  quantity?: string | null;
+  message: string;
+  createdAt: string;
+}) {
+  const mailer = await getTransporter();
+  if (!mailer) return false;
+  if (!isEmailDeliverable(ADMIN_NOTIFICATION_EMAIL)) return false;
+
+  const formLabel = params.formType === "bulk" ? "Bulk Query" : "Contact Enquiry";
+  const details = [
+    `<strong>Name:</strong> ${escapeHtml(params.name)}`,
+    `<strong>Email:</strong> ${escapeHtml(params.email)}`,
+    `<strong>Phone:</strong> ${escapeHtml(params.phone?.trim() || "-")}`,
+    `<strong>Company:</strong> ${escapeHtml(params.company?.trim() || "-")}`,
+    `<strong>Country:</strong> ${escapeHtml(params.country?.trim() || "-")}`,
+    `<strong>Quantity:</strong> ${escapeHtml(params.quantity?.trim() || "-")}`,
+    `<strong>Subject:</strong> ${escapeHtml(params.subject?.trim() || "-")}`,
+    `<strong>Submitted At:</strong> ${escapeHtml(formatDateTime(params.createdAt))}`
+  ];
+
+  try {
+    await mailer.sendMail({
+      from: SMTP_FROM,
+      to: ADMIN_NOTIFICATION_EMAIL,
+      subject: `${formLabel}: ${params.name}`,
+      html: `
+        <p>A new <strong>${escapeHtml(formLabel)}</strong> was submitted on the website.</p>
+        <p>${details.join("<br/>")}</p>
+        <p><strong>Message:</strong><br/>${escapeHtml(params.message).replaceAll("\n", "<br/>")}</p>
+      `
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown email error";
+    lastEmailError = message;
+    console.error("[email] Form notification send failed", error);
+    return false;
+  }
+
+  return true;
 }

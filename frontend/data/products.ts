@@ -83,7 +83,7 @@ const seeds: ProductSeed[] = [
     images: flavorSet("cream-onion"),
     description:
       "A classic flavour blend combining creamy richness with onion spice, offering a perfectly balanced savoury snacking experience.",
-    ingredients: "Makhana, Edible Oil, Cream & Onion Seasoning, Salt",
+    ingredients: "Makhana, Olive Oil, Cream & Onion Seasoning, Salt",
     nutrition: [
       { name: "Energy", value: "468.66 kcal" },
       { name: "Protein", value: "5.68 g" },

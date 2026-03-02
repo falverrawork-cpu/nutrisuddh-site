@@ -22,9 +22,9 @@ export const heroSlides: HeroSlide[] = [
     title: "Clean Makhana for Modern Snacking",
     subtitle:
       "Nutri Suddh delivers pure, nourishing, and genuinely satisfying makhana with no unnecessary additives.",
-    ctaLabel: "Shop",
+    ctaLabel: "See Collection",
     ctaHref: "/collections/all-products",
-    secondaryCtaLabel: "About Us",
+    secondaryCtaLabel: "Know More",
     secondaryCtaHref: "/about",
     image: flavorBanner.pudina
   },
@@ -33,10 +33,10 @@ export const heroSlides: HeroSlide[] = [
     title: "Our Collection. Your Favourite Flavours.",
     subtitle:
       "Explore individual flavoured makhana packs and combo packs crafted for daily snacking and sharing.",
-    ctaLabel: "Explore Our Range",
+    ctaLabel: "See Collection",
     ctaHref: "/collections/all-products",
-    secondaryCtaLabel: "Contact",
-    secondaryCtaHref: "/contact",
+    secondaryCtaLabel: "Know More",
+    secondaryCtaHref: "/about",
     image: flavorBanner.saltPepper
   },
   {
@@ -44,20 +44,15 @@ export const heroSlides: HeroSlide[] = [
     title: "Wholesale & Bulk Enquiry",
     subtitle:
       "Backed by NS Agro Overseas expertise, we support large-volume and wholesale requirements with reliable quality.",
-    ctaLabel: "Request Enquiry",
+    ctaLabel: "Send Enquiry",
     ctaHref: "/#bulk-quote",
-    secondaryCtaLabel: "Contact Us",
-    secondaryCtaHref: "/contact",
+    secondaryCtaLabel: "See Products",
+    secondaryCtaHref: "/collections/all-products",
     image: flavorBanner.tomatoChilli
   }
 ];
 
-export const trustPoints = [
-  "SUPERFOOD",
-  "NATURALLY GLUTEN FREE",
-  "NO ADDED PRESERVATIVES",
-  "LIGHT & WHOLESOME"
-];
+export const trustPoints: string[] = [];
 
 export const testimonials: Testimonial[] = [
   {

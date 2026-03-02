@@ -4,6 +4,10 @@ import { trustPoints } from "@/data/homepage";
 const icons = [ShieldCheck, Sparkles, Truck, Leaf, BadgeCheck, Sprout];
 
 export function TrustStrip() {
+  if (!trustPoints.length) {
+    return null;
+  }
+
   return (
     <section className="container-base mt-14">
       <div className="rounded-2xl border border-stone bg-white px-4 py-5">

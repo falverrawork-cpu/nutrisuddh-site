@@ -37,24 +37,50 @@ body {
 }
 
 button {
-  transition: transform 180ms ease, box-shadow 220ms ease, filter 220ms ease;
+  transition:
+    color 220ms ease,
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    filter 220ms ease;
 }
 
 button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px -12px rgba(11, 110, 79, 0.6);
+  transform: none;
+  box-shadow: none;
   filter: saturate(1.02);
 }
 
 button:active:not(:disabled) {
-  transform: translateY(0);
+  transform: none;
+}
+
+button svg,
+button svg * {
+  transition: color 220ms ease, fill 220ms ease, stroke 220ms ease;
+}
+
+button:hover:not(:disabled) svg,
+button:hover:not(:disabled) svg * {
+  color: #0b6e4f;
 }
 
 .no-hover-lift:hover:not(:disabled),
 .no-hover-lift:active:not(:disabled) {
-  transform: none;
-  box-shadow: none;
-  filter: none;
+  transform: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+button.no-hover-lift {
+  transition: none !important;
+}
+
+button.no-hover-lift:hover:not(:disabled),
+button.no-hover-lift:active:not(:disabled) {
+  transform: none !important;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -229,4 +255,47 @@ html[data-theme="dark"] .product-card-highlight {
     box-shadow: none;
     filter: none;
   }
+}
+
+/* Disable hover-lift effects specifically inside auth popup */
+.auth-popup-no-hover button,
+.auth-popup-no-hover button:hover:not(:disabled),
+.auth-popup-no-hover button:active:not(:disabled) {
+  transform: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transition: none !important;
+}
+
+button.hero-arrow-static,
+button.hero-arrow-static:hover:not(:disabled),
+button.hero-arrow-static:active:not(:disabled) {
+  transform: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+button.hero-arrow-static {
+  border: 1px solid #204430;
+  color: #204430;
+  transition: background-color 0.22s ease, color 0.22s ease, border-color 0.22s ease !important;
+}
+
+button.hero-arrow-static:hover:not(:disabled),
+button.hero-arrow-static:active:not(:disabled) {
+  background-color: #204430 !important;
+  border-color: #204430 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="dark"] button.hero-arrow-static:hover:not(:disabled),
+html[data-theme="dark"] button.hero-arrow-static:active:not(:disabled) {
+  background-color: #fbb040 !important;
+  border-color: #fbb040 !important;
+  color: #000000 !important;
+}
+
+button.hero-arrow-static svg,
+button.hero-arrow-static svg * {
+  transition: color 0.22s ease, fill 0.22s ease, stroke 0.22s ease !important;
 }

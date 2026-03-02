@@ -14,13 +14,13 @@ const shopCategories = [
     href: "/collections/all-products"
   },
   {
-    title: "Explore Our Range",
-    description: "Individual flavour packs (minimum order 3 packs).",
+    title: "Indivisual Flavours",
+    description: "Explore our range of Individual flavour packs",
     href: "/collections/flavoured-makhana"
   },
   {
-    title: "The Nutri Suddh Range",
-    description: "Combo of 3 packs curated for flavour variety.",
+    title: "Hot Combos",
+    description: "Eplore our range of Hot combos curated to your preferences.",
     href: "/collections/combos"
   }
 ];

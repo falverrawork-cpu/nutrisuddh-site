@@ -35,7 +35,7 @@ export const collections: Collection[] = [
   },
   {
     handle: "flavoured-makhana",
-    title: "Explore Our Range",
+    title: "Indivisual Flavours",
     description: "Individual flavoured makhana packs. Minimum order: 3 packs.",
     heroImage: categoryBanner.flavoured,
     productSlugs: [
@@ -119,8 +119,8 @@ export const collections: Collection[] = [
   },
   {
     handle: "combos",
-    title: "The Nutri Suddh Range",
-    description: "Combo of 3 packs and curated bundles for flavour discovery.",
+    title: "Hot Combos",
+    description: "Eplore our range of Hot combos curated to your preferences.",
     heroImage: "/combo-banners/combo-light.png",
     productSlugs: [
       "combo-3-salt-pepper-pudina-tomato-chilli",

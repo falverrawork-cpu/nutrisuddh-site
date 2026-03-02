@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useState } from "react";
 import { CartItemRow } from "@/components/cart/cart-item-row";
+import { CartHighlightBox } from "@/components/cart/cart-highlight-box";
 import { ConfettiBurst } from "@/components/common/confetti-burst";
 import { getDetailedCartItems } from "@/lib/cart";
 import { formatCurrency } from "@/lib/utils";
@@ -103,7 +104,7 @@ export function CartDrawer() {
                   </div>
                   {pricing.discountCode && (
                     <div className="mt-2 flex items-center justify-between text-sm text-pine">
-                      <span>{pricing.discountCode}</span>
+                      <span>Discount</span>
                       <span>-{formatCurrency(pricing.discountAmount)}</span>
                     </div>
                   )}
@@ -115,19 +116,7 @@ export function CartDrawer() {
                     Total: {formatCurrency(pricing.finalPayable)}
                   </div>
 
-                  <div className={`mt-3 rounded-xl border border-pine/30 bg-green-50 p-3 ${pricing.nudgeEligibleQty < 3 ? "nudge-pop-glow" : ""}`}>
-                    <p className="text-xs font-medium text-pine">{pricing.nudge.message}</p>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/80">
-                      <div
-                        className="h-full rounded-full bg-pine transition-all"
-                        style={{ width: `${Math.max(6, (Math.min(pricing.nudge.progressCurrent, pricing.nudge.progressTarget) / pricing.nudge.progressTarget) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <Link href="/checkout" onClick={close} className="focus-ring mt-4 block rounded-full bg-pine py-2 text-center text-sm text-white">
-                    Checkout
-                  </Link>
+                  <CartHighlightBox cart={cart} onCheckout={close} onAddMore={close} />
                 </div>
               </>
             )}

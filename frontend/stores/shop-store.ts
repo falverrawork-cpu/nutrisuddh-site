@@ -6,13 +6,11 @@ import { CartItem, Order } from "@/lib/types";
 
 type ShopState = {
   cart: CartItem[];
-  wishlist: string[];
   orders: Order[];
   addToCart: (productId: string, variantId: string, quantity?: number) => void;
   removeFromCart: (productId: string, variantId: string) => void;
   setCartQuantity: (productId: string, variantId: string, quantity: number) => void;
   clearCart: () => void;
-  toggleWishlist: (productId: string) => void;
   addOrder: (order: Order) => void;
 };
 
@@ -36,13 +34,10 @@ const updateCartItem = (
     .filter((item) => item.quantity > 0);
 };
 
-const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((i) => i !== id) : [...list, id]);
-
 export const useShopStore = create<ShopState>()(
   persist(
     (set) => ({
       cart: [],
-      wishlist: [],
       orders: [],
       addToCart: (productId, variantId, quantity = 1) =>
         set((state) => {
@@ -61,7 +56,6 @@ export const useShopStore = create<ShopState>()(
       setCartQuantity: (productId, variantId, quantity) =>
         set((state) => ({ cart: updateCartItem(state.cart, productId, variantId, quantity) })),
       clearCart: () => set({ cart: [] }),
-      toggleWishlist: (productId) => set((state) => ({ wishlist: toggle(state.wishlist, productId) })),
       addOrder: (order) =>
         set((state) => ({
           orders: [order, ...state.orders]

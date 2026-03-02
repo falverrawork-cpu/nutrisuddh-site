@@ -61,6 +61,35 @@ CREATE TABLE IF NOT EXISTS order_items (
   image TEXT NOT NULL,
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  email TEXT NOT NULL,
+  token_hash TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+ );
+
+CREATE TABLE IF NOT EXISTS form_submissions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  form_type TEXT NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT,
+  subject TEXT,
+  company TEXT,
+  country TEXT,
+  quantity TEXT,
+  message TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new',
+  reply_subject TEXT,
+  reply_message TEXT,
+  replied_at TEXT,
+  created_at TEXT NOT NULL
+);
 `);
 
 const orderColumns = db.prepare("PRAGMA table_info(orders)").all() as Array<{ name: string }>;
