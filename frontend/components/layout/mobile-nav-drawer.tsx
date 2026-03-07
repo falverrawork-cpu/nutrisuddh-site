@@ -14,7 +14,7 @@ const shopCategories = [
     href: "/collections/all-products"
   },
   {
-    title: "Indivisual Flavours",
+    title: "Individual Flavours",
     description: "Explore our range of Individual flavour packs",
     href: "/collections/flavoured-makhana"
   },

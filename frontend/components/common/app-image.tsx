@@ -1,4 +1,5 @@
 import type { CSSProperties, ImgHTMLAttributes } from "react";
+import { getMediaUrl } from "@/lib/utils";
 
 type AppImageProps = ImgHTMLAttributes<HTMLImageElement> & {
   fill?: boolean;
@@ -8,7 +9,7 @@ type AppImageProps = ImgHTMLAttributes<HTMLImageElement> & {
 };
 
 export default function Image({ fill, style, alt, ...props }: AppImageProps) {
-  const { priority: _priority, quality: _quality, ...imgProps } = props;
+  const { priority, quality: _quality, loading, decoding, src, ...imgProps } = props;
   const imageStyle: CSSProperties = fill
     ? {
         position: "absolute",
@@ -19,5 +20,14 @@ export default function Image({ fill, style, alt, ...props }: AppImageProps) {
       }
     : { ...style };
 
-  return <img alt={alt ?? ""} {...imgProps} style={imageStyle} />;
+  return (
+    <img
+      alt={alt ?? ""}
+      {...imgProps}
+      src={typeof src === "string" ? getMediaUrl(src) : src}
+      loading={loading ?? (priority ? "eager" : "lazy")}
+      decoding={decoding ?? "async"}
+      style={imageStyle}
+    />
+  );
 }

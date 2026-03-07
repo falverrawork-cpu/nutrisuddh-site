@@ -13,7 +13,7 @@ export function CustomisePackBanner() {
         >
           <div className="relative min-h-[280px] sm:min-h-[320px]">
             <Image
-              src="/banners/customise-products.png"
+              src="https://ik.imagekit.io/Falverra/customise-products.jpg?updatedAt=1772868770834"
               alt="Customise your Pack"
               fill
               className="object-cover transition duration-700 group-hover:scale-110"

@@ -60,7 +60,7 @@ export default function AboutPage() {
 
       <section className="mt-12">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-pine">Our Collection</p>
-        <h2 className="mt-2 font-display text-3xl sm:text-4xl">Indivisual Flavours</h2>
+        <h2 className="mt-2 font-display text-3xl sm:text-4xl">Individual Flavours</h2>
         <p className="mt-2 text-sm text-gray-700 sm:text-base">
           <strong>The Nutri Suddh Range</strong> includes a variety of flavoured makhana options from tangy tomato, to
           fresh pudina, cheesy cheese to spicy peri peri, creamy cream and onion to classing salt and pepper. We Have

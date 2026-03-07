@@ -8,7 +8,9 @@ import { ensureAdminUser } from "./lib/bootstrap";
 import { db } from "./lib/db";
 import { AuthRequest, requireAdmin, requireAuth, signAuthToken } from "./lib/auth";
 import {
+  getLastEmailError,
   sendAdminTestEmail,
+  sendEmailLoginCodeEmail,
   sendFormSubmissionNotificationEmail,
   sendFormReplyEmail,
   sendOrderConfirmationEmails,
@@ -93,6 +95,25 @@ const getLatestActivePasswordResetTokenByEmail = db.prepare(
 const markPasswordResetTokenUsedById = db.prepare(
   "UPDATE password_reset_tokens SET used_at = ? WHERE id = ?"
 );
+const insertEmailLoginToken = db.prepare(
+  `INSERT INTO email_login_tokens (user_id, email, token_hash, expires_at, created_at)
+   VALUES (?, ?, ?, ?, ?)`
+);
+const markEmailLoginTokensUsedByEmail = db.prepare(
+  "UPDATE email_login_tokens SET used_at = ? WHERE email = ? AND used_at IS NULL"
+);
+const getLatestActiveEmailLoginTokenByEmail = db.prepare(
+  `SELECT id, user_id, email, token_hash, expires_at
+   FROM email_login_tokens
+   WHERE email = ?
+     AND used_at IS NULL
+     AND datetime(expires_at) > datetime('now')
+   ORDER BY datetime(created_at) DESC
+   LIMIT 1`
+);
+const markEmailLoginTokenUsedById = db.prepare(
+  "UPDATE email_login_tokens SET used_at = ? WHERE id = ?"
+);
 const insertFormSubmission = db.prepare(
   `INSERT INTO form_submissions (
     form_type, name, email, phone, subject, company, country, quantity, message, status, created_at
@@ -105,6 +126,10 @@ function normalizeEmail(email: string) {
 
 function getResetCodeHash(email: string, code: string) {
   return crypto.createHash("sha256").update(`${normalizeEmail(email)}:${code}`).digest("hex");
+}
+
+function getEmailLoginCodeHash(email: string, code: string) {
+  return crypto.createHash("sha256").update(`email-login:${normalizeEmail(email)}:${code}`).digest("hex");
 }
 
 function getResetCode() {
@@ -467,7 +492,7 @@ app.post("/api/auth/forgot-password/request", async (req, res) => {
       const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
 
       markPasswordResetTokensUsedByEmail.run(now.toISOString(), email);
-      insertPasswordResetToken.run(
+      const tokenInsert = insertPasswordResetToken.run(
         user.id,
         email,
         getResetCodeHash(email, code),
@@ -475,7 +500,15 @@ app.post("/api/auth/forgot-password/request", async (req, res) => {
         now.toISOString()
       );
 
-      await sendPasswordResetCodeEmail(email, code);
+      const sent = await sendPasswordResetCodeEmail(email, code);
+      if (!sent) {
+        markPasswordResetTokenUsedById.run(now.toISOString(), tokenInsert.lastInsertRowid);
+        const details = getLastEmailError();
+        console.error("Forgot password email send failed", details || "SMTP unavailable");
+        return res.status(503).json({
+          error: "Unable to send reset code right now. Please try again later."
+        });
+      }
     }
 
     return res.json({ ok: true, message: "If this email exists, a reset code has been sent." });
@@ -528,6 +561,100 @@ app.post("/api/auth/forgot-password/confirm", async (req, res) => {
   } catch (error) {
     console.error("Forgot password confirm failed", error);
     return res.status(500).json({ error: "Unable to reset password." });
+  }
+});
+
+app.post("/api/auth/email-login/request", async (req, res) => {
+  try {
+    const body = req.body as { email?: string };
+    const email = body.email ? normalizeEmail(body.email) : "";
+
+    if (!email || !email.includes("@")) {
+      return res.status(400).json({ error: "Valid email is required." });
+    }
+
+    const user = getUserByEmail.get(email) as
+      | { id: number; name: string; email: string; phone: string | null; role: Role; password_hash: string }
+      | undefined;
+
+    if (!user) {
+      return res.status(404).json({ error: "No account found for this email." });
+    }
+
+    const code = getResetCode();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
+
+    markEmailLoginTokensUsedByEmail.run(now.toISOString(), email);
+    const tokenInsert = insertEmailLoginToken.run(
+      user.id,
+      email,
+      getEmailLoginCodeHash(email, code),
+      expiresAt.toISOString(),
+      now.toISOString()
+    );
+
+    const sent = await sendEmailLoginCodeEmail(email, code);
+    if (!sent) {
+      markEmailLoginTokenUsedById.run(now.toISOString(), tokenInsert.lastInsertRowid);
+      const details = getLastEmailError();
+      console.error("Email login code send failed", details || "SMTP unavailable");
+      return res.status(503).json({
+        error: "Unable to send login code right now. Please try again later."
+      });
+    }
+
+    return res.json({ ok: true, message: "Login code sent to your email." });
+  } catch (error) {
+    console.error("Email login request failed", error);
+    return res.status(500).json({ error: "Unable to process email login request." });
+  }
+});
+
+app.post("/api/auth/email-login/confirm", async (req, res) => {
+  try {
+    const body = req.body as { email?: string; code?: string };
+    const email = body.email ? normalizeEmail(body.email) : "";
+    const code = (body.code ?? "").trim();
+
+    if (!email || !email.includes("@")) {
+      return res.status(400).json({ error: "Valid email is required." });
+    }
+
+    if (!code || code.length < 6) {
+      return res.status(400).json({ error: "Valid login code is required." });
+    }
+
+    const tokenRow = getLatestActiveEmailLoginTokenByEmail.get(email) as
+      | { id: number; user_id: number; email: string; token_hash: string; expires_at: string }
+      | undefined;
+
+    if (!tokenRow) {
+      return res.status(400).json({ error: "Login code is invalid or expired." });
+    }
+
+    const codeHash = getEmailLoginCodeHash(email, code);
+    if (tokenRow.token_hash !== codeHash) {
+      return res.status(400).json({ error: "Login code is invalid or expired." });
+    }
+
+    const user = getUserById.get(tokenRow.user_id) as
+      | { id: number; name: string; email: string; phone: string | null; role: Role; password_hash: string }
+      | undefined;
+
+    if (!user) {
+      return res.status(404).json({ error: "Account not found." });
+    }
+
+    const usedAt = new Date().toISOString();
+    markEmailLoginTokenUsedById.run(usedAt, tokenRow.id);
+    markEmailLoginTokensUsedByEmail.run(usedAt, email);
+
+    const token = signAuthToken({ userId: user.id, email: user.email, role: user.role });
+    return res.json({ token, user: mapUser(user) });
+  } catch (error) {
+    console.error("Email login confirm failed", error);
+    return res.status(500).json({ error: "Unable to login with email code." });
   }
 });
 
@@ -1019,7 +1146,7 @@ app.delete("/api/admin/users/:userId", requireAuth, requireAdmin, (req: AuthRequ
   }
 });
 
-app.patch("/api/admin/orders/:orderId/status", requireAuth, requireAdmin, (req, res) => {
+app.patch("/api/admin/orders/:orderId/status", requireAuth, requireAdmin, async (req, res) => {
   try {
     const orderId = req.params.orderId;
     const body = req.body as { status?: string };
@@ -1033,12 +1160,38 @@ app.patch("/api/admin/orders/:orderId/status", requireAuth, requireAdmin, (req, 
       return res.status(400).json({ error: "Invalid status value." });
     }
 
+    const existingOrder = db
+      .prepare("SELECT * FROM orders WHERE id = ?")
+      .get(orderId) as any | undefined;
+
+    if (!existingOrder) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
     const result = db
       .prepare("UPDATE orders SET status = ? WHERE id = ?")
       .run(nextStatus, orderId);
 
     if (result.changes === 0) {
       return res.status(404).json({ error: "Order not found." });
+    }
+
+    const updatedOrder = db
+      .prepare("SELECT * FROM orders WHERE id = ?")
+      .get(orderId) as any | undefined;
+
+    if (updatedOrder) {
+      const itemRows = db
+        .prepare("SELECT * FROM order_items WHERE order_id = ? ORDER BY id ASC")
+        .all(orderId) as any[];
+
+      const sent = await sendOrderStatusUpdateEmail(toMailOrder(updatedOrder, itemRows));
+      if (sent) {
+        db.prepare("UPDATE orders SET last_status_email_sent_at = ? WHERE id = ?")
+          .run(new Date().toISOString(), orderId);
+      } else {
+        console.error(`Order status email failed for order ${orderId}`);
+      }
     }
 
     return res.json({ ok: true, orderId, status: nextStatus });

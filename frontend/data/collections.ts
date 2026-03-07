@@ -1,16 +1,16 @@
 import { Collection } from "@/lib/types";
 
 const categoryBanner = {
-  flavoured: "/category-banners/tangy-spicy.png",
-  roasted: "/category-banners/fresh-fun.png",
-  periPeri: "/category-banners/spicy.png",
-  tomatoChilli: "/category-banners/tangy-spicy.png",
-  creamOnion: "/category-banners/creamy-tangy.png",
-  pudina: "/category-banners/fresh-fun.png",
-  saltPepper: "/category-banners/plain.png",
-  cheese: "/category-banners/cheese-fun.png",
-  bulk: "/combo-banners/combo-hot.png",
-  combos: "/combo-banners/combo-light.png"
+  flavoured: "https://ik.imagekit.io/Falverra/peri-peri.png?updatedAt=1772868771884",
+  roasted: "https://ik.imagekit.io/Falverra/peri-peri.png?updatedAt=1772868771884",
+  periPeri: "https://ik.imagekit.io/Falverra/peri-peri.png?updatedAt=1772868771884",
+  tomatoChilli: "https://ik.imagekit.io/Falverra/pudina-cheese-periperi.png?updatedAt=1772868772810",
+  creamOnion: "https://ik.imagekit.io/Falverra/cream-onion.png?updatedAt=1772868771847",
+  pudina: "https://ik.imagekit.io/Falverra/pudina(1).png?updatedAt=1772868772073",
+  saltPepper: "https://ik.imagekit.io/Falverra/salt-pepper(1).png?updatedAt=1772868771857",
+  cheese: "https://ik.imagekit.io/Falverra/cheese.png?updatedAt=1772868771842",
+  bulk: "https://ik.imagekit.io/Falverra/pudina-cheese-periperi.png?updatedAt=1772868772810",
+  combos: "https://ik.imagekit.io/Falverra/pudina-salt-tomato.png?updatedAt=1772868772699"
 };
 
 export const collections: Collection[] = [
@@ -121,7 +121,7 @@ export const collections: Collection[] = [
     handle: "combos",
     title: "Hot Combos",
     description: "Eplore our range of Hot combos curated to your preferences.",
-    heroImage: "/combo-banners/combo-light.png",
+    heroImage: "https://ik.imagekit.io/Falverra/pudina-salt-tomato.png?updatedAt=1772868772699",
     productSlugs: [
       "combo-3-salt-pepper-pudina-tomato-chilli",
       "combo-3-tomato-chilli-cream-onion-pudina",

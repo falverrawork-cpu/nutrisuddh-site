@@ -5,15 +5,15 @@ import { Reveal } from "@/components/common/reveal";
 import { SectionHeading } from "@/components/common/section-heading";
 
 const categoryImageByHandle: Record<string, string> = {
-  "flavoured-makhana": "/category-banners/tangy-spicy.png",
-  "roasted-makhana": "/category-banners/fresh-fun.png",
-  "peri-peri": "/category-banners/spicy.png",
-  "cream-onion": "/category-banners/creamy-tangy.png",
-  pudina: "/category-banners/fresh-fun.png",
-  "salt-pepper": "/category-banners/plain.png",
-  cheese: "/category-banners/cheese-fun.png",
-  "bulk-makhana": "/combo-banners/combo-hot.png",
-  combos: "/combo-banners/combo-light.png"
+  "flavoured-makhana": "https://ik.imagekit.io/Falverra/peri-peri.png?updatedAt=1772868771884",
+  "roasted-makhana": "https://ik.imagekit.io/Falverra/peri-peri.png?updatedAt=1772868771884",
+  "peri-peri": "https://ik.imagekit.io/Falverra/peri-peri.png?updatedAt=1772868771884",
+  "cream-onion": "https://ik.imagekit.io/Falverra/cream-onion.png?updatedAt=1772868771847",
+  pudina: "https://ik.imagekit.io/Falverra/pudina(1).png?updatedAt=1772868772073",
+  "salt-pepper": "https://ik.imagekit.io/Falverra/salt-pepper(1).png?updatedAt=1772868771857",
+  cheese: "https://ik.imagekit.io/Falverra/cheese.png?updatedAt=1772868771842",
+  "bulk-makhana": "https://ik.imagekit.io/Falverra/pudina-cheese-periperi.png?updatedAt=1772868772810",
+  combos: "https://ik.imagekit.io/Falverra/pudina-salt-tomato.png?updatedAt=1772868772699"
 };
 
 export function CategoryTiles() {

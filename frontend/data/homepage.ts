@@ -1,12 +1,12 @@
 import { HeroSlide, Testimonial } from "@/lib/types";
 
 const flavorBanner = {
-  pudina: "/banners/pudina.png",
-  saltPepper: "/banners/salt-pepper.png",
-  tomatoChilli: "/banners/tomato-chilli.png",
-  periPeri: "/banners/peri-peri.png",
-  cheese: "/banners/cheese.png",
-  creamOnion: "/banners/cream-onion.png"
+  pudina: "https://ik.imagekit.io/Falverra/pudina.jpg?updatedAt=1772868770469",
+  saltPepper: "https://ik.imagekit.io/Falverra/salt-pepper.jpg?updatedAt=1772868770682",
+  tomatoChilli: "https://ik.imagekit.io/Falverra/tomato-chilli.jpg?updatedAt=1772868770636",
+  periPeri: "https://ik.imagekit.io/Falverra/front(2).png?updatedAt=1772868771005",
+  cheese: "https://ik.imagekit.io/Falverra/front.png?updatedAt=1772868771215",
+  creamOnion: "https://ik.imagekit.io/Falverra/front(1).png?updatedAt=1772868770883"
 };
 
 export const promoMessages = [
@@ -80,7 +80,7 @@ export const comboPromo = {
   subtitle: "Choose flavour-ready combo packs curated for everyday snacking and gifting.",
   ctaLabel: "Explore Combos",
   ctaHref: "/collections/combos",
-  image: "/banners/MOQ.png"
+  image: "https://ik.imagekit.io/Falverra/customise-products.jpg?updatedAt=1772868770834"
 };
 
 export const bulkSection = {

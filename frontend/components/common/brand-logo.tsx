@@ -10,7 +10,7 @@ export function BrandLogo({ className = "", imageClassName = "" }: { className?:
   return (
     <Link href="/" className={className} aria-label="Home">
       <Image
-        src={theme === "dark" ? "/logo/dark.png" : "/logo/light.png"}
+        src={theme === "dark" ? "https://ik.imagekit.io/Falverra/light.png?updatedAt=1772868770430" : "https://ik.imagekit.io/Falverra/light.png?updatedAt=1772868770430"}
         alt="Brand logo"
         width={160}
         height={42}

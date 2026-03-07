@@ -22,7 +22,7 @@ const shopCategories = [
     href: "/collections/all-products"
   },
   {
-    title: "Indivisual Flavours",
+    title: "Individual Flavours",
     description: "Explore our range of Individual flavour packs",
     href: "/collections/flavoured-makhana"
   },
@@ -275,10 +275,13 @@ function AccountAuthModal({
 }) {
   const [mounted, setMounted] = useState(false);
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("signup");
+  const [loginMethod, setLoginMethod] = useState<"password" | "otp">("password");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "+91", email: "", password: "" });
   const [forgotStep, setForgotStep] = useState<"request" | "confirm">("request");
   const [forgotForm, setForgotForm] = useState({ email: "", code: "", newPassword: "", confirmPassword: "" });
+  const [otpStep, setOtpStep] = useState<"request" | "confirm">("request");
+  const [otpForm, setOtpForm] = useState({ email: "", code: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
@@ -297,6 +300,14 @@ function AccountAuthModal({
       email: current.email.trim() ? current.email : form.email
     }));
   }, [form.email, mode]);
+
+  useEffect(() => {
+    if (mode !== "login" || loginMethod !== "otp") return;
+    setOtpForm((current) => ({
+      ...current,
+      email: current.email.trim() ? current.email : form.email
+    }));
+  }, [form.email, loginMethod, mode]);
 
   useEffect(() => {
     setMounted(true);
@@ -349,6 +360,43 @@ function AccountAuthModal({
         setForgotForm({ email: forgotForm.email, code: "", newPassword: "", confirmPassword: "" });
       } catch (error) {
         addToast(error instanceof Error ? error.message : "Unable to reset password.", "info");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    if (mode === "login" && loginMethod === "otp") {
+      setLoading(true);
+      try {
+        if (otpStep === "request") {
+          if (!otpForm.email.trim()) {
+            addToast("Email is required.", "info");
+            return;
+          }
+          await apiFetch<{ ok: boolean; message: string }>("/api/auth/email-login/request", {
+            method: "POST",
+            body: JSON.stringify({ email: otpForm.email })
+          });
+          addToast("Login code sent to your email.");
+          setOtpStep("confirm");
+          return;
+        }
+
+        if (!otpForm.code.trim()) {
+          addToast("Login code is required.", "info");
+          return;
+        }
+
+        const result = await apiFetch<AuthResponse>("/api/auth/email-login/confirm", {
+          method: "POST",
+          body: JSON.stringify({ email: otpForm.email, code: otpForm.code })
+        });
+        onLogin(result.token, result.user);
+        addToast("Logged in successfully");
+        onClose();
+      } catch (error) {
+        addToast(error instanceof Error ? error.message : "OTP login failed.", "info");
       } finally {
         setLoading(false);
       }
@@ -439,6 +487,8 @@ function AccountAuthModal({
                 onClick={() => {
                   setMode("signup");
                   setForgotStep("request");
+                  setOtpStep("request");
+                  setLoginMethod("password");
                 }}
                 className={`focus-ring rounded-full px-4 py-1.5 text-sm ${mode === "signup" ? "bg-pine text-white" : "text-gray-600"}`}
               >
@@ -449,6 +499,7 @@ function AccountAuthModal({
                 onClick={() => {
                   setMode("login");
                   setForgotStep("request");
+                  setOtpStep("request");
                 }}
                 className={`focus-ring rounded-full px-4 py-1.5 text-sm ${mode === "login" ? "bg-pine text-white" : "text-gray-600"}`}
               >
@@ -540,40 +591,84 @@ function AccountAuthModal({
                 </>
               ) : (
                 <>
-                  <input
-                    value={form.email}
-                    onChange={(e) => setForm((state) => ({ ...state, email: e.target.value }))}
-                    placeholder="Email"
-                    className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
-                  />
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={form.password}
-                      onChange={(e) => setForm((state) => ({ ...state, password: e.target.value }))}
-                      placeholder="Password"
-                      className="focus-ring w-full rounded-lg border border-stone px-3 py-2 pr-10 text-sm"
-                    />
+                  <div className="inline-flex rounded-full border border-stone bg-white p-1">
                     <button
                       type="button"
-                      onClick={() => setShowPassword((value) => !value)}
-                      className="focus-ring no-hover-lift absolute right-2 inset-y-0 my-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      onClick={() => {
+                        setLoginMethod("password");
+                        setOtpStep("request");
+                      }}
+                      className={`focus-ring rounded-full px-3 py-1.5 text-xs ${loginMethod === "password" ? "bg-pine text-white" : "text-gray-600"}`}
                     >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      Password
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginMethod("otp");
+                        setOtpStep("request");
+                        setOtpForm((current) => ({ ...current, email: form.email }));
+                      }}
+                      className={`focus-ring rounded-full px-3 py-1.5 text-xs ${loginMethod === "otp" ? "bg-pine text-white" : "text-gray-600"}`}
+                    >
+                      Email OTP
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode("forgot");
-                      setForgotStep("request");
-                      setForgotForm((current) => ({ ...current, email: form.email }));
-                    }}
-                    className="focus-ring -mt-1 w-fit rounded-full border border-stone px-3 py-1 text-xs text-gray-600"
-                  >
-                    Forgot Password?
-                  </button>
+                  {loginMethod === "otp" ? (
+                    <>
+                      <input
+                        value={otpForm.email}
+                        onChange={(e) => setOtpForm((state) => ({ ...state, email: e.target.value }))}
+                        placeholder="Email"
+                        className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                      />
+                      {otpStep === "confirm" && (
+                        <input
+                          value={otpForm.code}
+                          onChange={(e) => setOtpForm((state) => ({ ...state, code: e.target.value }))}
+                          placeholder="Login code"
+                          className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        value={form.email}
+                        onChange={(e) => setForm((state) => ({ ...state, email: e.target.value }))}
+                        placeholder="Email"
+                        className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                      />
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          value={form.password}
+                          onChange={(e) => setForm((state) => ({ ...state, password: e.target.value }))}
+                          placeholder="Password"
+                          className="focus-ring w-full rounded-lg border border-stone px-3 py-2 pr-10 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((value) => !value)}
+                          className="focus-ring no-hover-lift absolute right-2 inset-y-0 my-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500"
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode("forgot");
+                          setForgotStep("request");
+                          setForgotForm((current) => ({ ...current, email: form.email }));
+                        }}
+                        className="focus-ring -mt-1 w-fit rounded-full border border-stone px-3 py-1 text-xs text-gray-600"
+                      >
+                        Forgot Password?
+                      </button>
+                    </>
+                  )}
                 </>
               )}
               <button
@@ -590,7 +685,11 @@ function AccountAuthModal({
                       ? forgotStep === "request"
                         ? "Send Reset Code"
                         : "Reset Password"
-                      : "Login"}
+                      : loginMethod === "otp"
+                        ? otpStep === "request"
+                          ? "Send Login Code"
+                          : "Verify & Login"
+                        : "Login"}
               </button>
               {mode === "forgot" && (
                 <button

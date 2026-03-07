@@ -14,6 +14,7 @@ type AuthResponse = {
 
 export function AccountView() {
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
+  const [loginMethod, setLoginMethod] = useState<"password" | "otp">("password");
   const [loading, setLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -28,6 +29,8 @@ export function AccountView() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotStep, setForgotStep] = useState<"request" | "confirm">("request");
   const [forgotForm, setForgotForm] = useState({ email: "", code: "", newPassword: "", confirmPassword: "" });
+  const [otpStep, setOtpStep] = useState<"request" | "confirm">("request");
+  const [otpForm, setOtpForm] = useState({ email: "", code: "" });
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const setSession = useAuthStore((state) => state.setSession);
@@ -61,6 +64,14 @@ export function AccountView() {
       email: current.email.trim() ? current.email : form.email
     }));
   }, [form.email, mode]);
+
+  useEffect(() => {
+    if (mode !== "login" || loginMethod !== "otp") return;
+    setOtpForm((current) => ({
+      ...current,
+      email: current.email.trim() ? current.email : form.email
+    }));
+  }, [form.email, loginMethod, mode]);
 
   const onUpdateProfile = async (event: FormEvent) => {
     event.preventDefault();
@@ -217,6 +228,48 @@ export function AccountView() {
         setForgotForm({ email: forgotForm.email, code: "", newPassword: "", confirmPassword: "" });
       } catch (error) {
         addToast(error instanceof Error ? error.message : "Unable to reset password.", "info");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    if (mode === "login" && loginMethod === "otp") {
+      setLoading(true);
+      try {
+        if (otpStep === "request") {
+          if (!otpForm.email.trim()) {
+            addToast("Email is required.", "info");
+            return;
+          }
+
+          await apiFetch<{ ok: boolean; message: string }>("/api/auth/email-login/request", {
+            method: "POST",
+            body: JSON.stringify({ email: otpForm.email })
+          });
+          addToast("Login code sent to your email.");
+          setOtpStep("confirm");
+          return;
+        }
+
+        if (!otpForm.code.trim()) {
+          addToast("Login code is required.", "info");
+          return;
+        }
+
+        const result = await apiFetch<AuthResponse>("/api/auth/email-login/confirm", {
+          method: "POST",
+          body: JSON.stringify({
+            email: otpForm.email,
+            code: otpForm.code
+          })
+        });
+
+        setSession(result.token, result.user);
+        addToast("Logged in successfully");
+        navigate(nextPath);
+      } catch (error) {
+        addToast(error instanceof Error ? error.message : "OTP login failed.", "info");
       } finally {
         setLoading(false);
       }
@@ -432,6 +485,7 @@ export function AccountView() {
           onClick={() => {
             setMode("login");
             setForgotStep("request");
+            setOtpStep("request");
           }}
           className={`focus-ring rounded-full px-4 py-1.5 text-sm ${mode === "login" ? "bg-pine text-white" : "text-gray-600"}`}
         >
@@ -442,6 +496,8 @@ export function AccountView() {
           onClick={() => {
             setMode("signup");
             setForgotStep("request");
+            setOtpStep("request");
+            setLoginMethod("password");
           }}
           className={`focus-ring rounded-full px-4 py-1.5 text-sm ${mode === "signup" ? "bg-pine text-white" : "text-gray-600"}`}
         >
@@ -518,35 +574,79 @@ export function AccountView() {
           </>
         ) : (
           <>
-            <input value={form.email} onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))} placeholder="Email" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
-            <div className="relative">
-              <input
-                type={showAuthPassword ? "text" : "password"}
-                value={form.password}
-                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
-                placeholder="Password"
-                className="focus-ring w-full rounded-lg border border-stone px-3 py-2 pr-10 text-sm"
-              />
+            <div className="inline-flex rounded-full border border-stone bg-white p-1">
               <button
                 type="button"
-                onClick={() => setShowAuthPassword((value) => !value)}
-                className="focus-ring no-hover-lift absolute right-2 inset-y-0 my-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500"
-                aria-label={showAuthPassword ? "Hide password" : "Show password"}
+                onClick={() => {
+                  setLoginMethod("password");
+                  setOtpStep("request");
+                }}
+                className={`focus-ring rounded-full px-3 py-1.5 text-xs ${loginMethod === "password" ? "bg-pine text-white" : "text-gray-600"}`}
               >
-                {showAuthPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                Password
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginMethod("otp");
+                  setOtpStep("request");
+                  setOtpForm((current) => ({ ...current, email: form.email }));
+                }}
+                className={`focus-ring rounded-full px-3 py-1.5 text-xs ${loginMethod === "otp" ? "bg-pine text-white" : "text-gray-600"}`}
+              >
+                Email OTP
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setMode("forgot");
-                setForgotStep("request");
-                setForgotForm((current) => ({ ...current, email: form.email }));
-              }}
-              className="focus-ring -mt-1 w-fit rounded-full border border-stone px-3 py-1 text-xs text-gray-600"
-            >
-              Forgot Password?
-            </button>
+            {loginMethod === "otp" ? (
+              <>
+                <input
+                  value={otpForm.email}
+                  onChange={(e) => setOtpForm((s) => ({ ...s, email: e.target.value }))}
+                  placeholder="Email"
+                  className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                />
+                {otpStep === "confirm" && (
+                  <input
+                    value={otpForm.code}
+                    onChange={(e) => setOtpForm((s) => ({ ...s, code: e.target.value }))}
+                    placeholder="Login code"
+                    className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+                  />
+                )}
+              </>
+            ) : (
+              <>
+                <input value={form.email} onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))} placeholder="Email" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
+                <div className="relative">
+                  <input
+                    type={showAuthPassword ? "text" : "password"}
+                    value={form.password}
+                    onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+                    placeholder="Password"
+                    className="focus-ring w-full rounded-lg border border-stone px-3 py-2 pr-10 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAuthPassword((value) => !value)}
+                    className="focus-ring no-hover-lift absolute right-2 inset-y-0 my-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500"
+                    aria-label={showAuthPassword ? "Hide password" : "Show password"}
+                  >
+                    {showAuthPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("forgot");
+                    setForgotStep("request");
+                    setForgotForm((current) => ({ ...current, email: form.email }));
+                  }}
+                  className="focus-ring -mt-1 w-fit rounded-full border border-stone px-3 py-1 text-xs text-gray-600"
+                >
+                  Forgot Password?
+                </button>
+              </>
+            )}
           </>
         )}
         <button type="submit" disabled={loading} className={`focus-ring rounded-full py-2.5 text-sm font-semibold ${loading ? "bg-gray-300 text-gray-600" : "bg-pine text-white"}`}>
@@ -554,11 +654,15 @@ export function AccountView() {
             ? "Please wait..."
             : mode === "signup"
               ? "Create Account"
-              : mode === "forgot"
+            : mode === "forgot"
                 ? forgotStep === "request"
                   ? "Send Reset Code"
                   : "Reset Password"
-                : "Login"}
+                : loginMethod === "otp"
+                  ? otpStep === "request"
+                    ? "Send Login Code"
+                    : "Verify & Login"
+                  : "Login"}
         </button>
         {mode === "forgot" && (
           <button

@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { bulkSection } from "@/data/homepage";
 import { apiFetch } from "@/lib/api";
+import { getMediaUrl } from "@/lib/utils";
 import { useUIStore } from "@/stores/ui-store";
 
 export function BulkSection() {
@@ -34,7 +35,7 @@ export function BulkSection() {
       <div className="group relative overflow-hidden rounded-3xl border border-emerald-200 p-8 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-24px_rgba(11,110,79,0.55)] sm:p-10">
         <div
           className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-110"
-          style={{ backgroundImage: "url('/banners/bulk.png')" }}
+          style={{ backgroundImage: "url('https://ik.imagekit.io/Falverra/bulk.png?updatedAt=1772868772034')" }}
           aria-hidden="true"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/45 to-black/25 transition duration-500 group-hover:from-black/55 group-hover:via-black/35" aria-hidden="true" />

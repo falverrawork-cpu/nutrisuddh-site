@@ -143,6 +143,7 @@ export function AdminOrdersView() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [activeTab, setActiveTab] = useState<"users" | "orders" | "forms" | "bulk">("orders");
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [orderStatusDrafts, setOrderStatusDrafts] = useState<Record<string, AdminOrderStatus>>({});
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [userDraft, setUserDraft] = useState<{ name: string; phone: string; email: string; role: "user" | "admin" } | null>(null);
@@ -212,6 +213,11 @@ export function AdminOrdersView() {
         setSummary(summarizeOrders(nextOrders));
         return nextOrders;
       });
+      setOrderStatusDrafts((current) => {
+        const next = { ...current };
+        delete next[orderId];
+        return next;
+      });
       addToast(`Order ${orderId} marked as ${status}`);
     } catch (error) {
       addToast(error instanceof Error ? error.message : "Unable to update status.", "info");
@@ -219,6 +225,8 @@ export function AdminOrdersView() {
       setUpdatingOrderId(null);
     }
   };
+
+  const getDraftStatus = (order: Order) => orderStatusDrafts[order.id] ?? order.status;
 
   const beginEditUser = (targetUser: AdminUser) => {
     setEditingUserId(targetUser.id);
@@ -691,10 +699,12 @@ export function AdminOrdersView() {
                             <button
                               key={status}
                               type="button"
-                              onClick={() => updateStatus(order.id, status)}
-                              disabled={updatingOrderId === order.id || order.status === status}
+                              onClick={() =>
+                                setOrderStatusDrafts((current) => ({ ...current, [order.id]: status }))
+                              }
+                              disabled={updatingOrderId === order.id}
                               className={`focus-ring rounded-full border px-3 py-1 text-xs ${
-                                order.status === status
+                                getDraftStatus(order) === status
                                   ? "border-pine bg-pine/10 text-pine"
                                   : "border-stone text-ink"
                               } disabled:cursor-not-allowed disabled:opacity-50`}
@@ -702,6 +712,14 @@ export function AdminOrdersView() {
                               {status}
                             </button>
                           ))}
+                          <button
+                            type="button"
+                            onClick={() => updateStatus(order.id, getDraftStatus(order) as AdminOrderStatus)}
+                            disabled={updatingOrderId === order.id || getDraftStatus(order) === order.status}
+                            className="focus-ring rounded-full bg-pine px-3 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {updatingOrderId === order.id ? "Saving..." : "Save"}
+                          </button>
                         </div>
                       </td>
                       <td className="px-2 py-3">

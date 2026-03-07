@@ -45,6 +45,10 @@ let emailReadyLogged = false;
 let emailNotConfiguredLogged = false;
 let lastEmailError = "";
 
+export function getLastEmailError() {
+  return lastEmailError;
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -366,6 +370,33 @@ export async function sendPasswordResetCodeEmail(recipientEmail: string, code: s
     const message = error instanceof Error ? error.message : "Unknown email error";
     lastEmailError = message;
     console.error("[email] Password reset email failed", error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function sendEmailLoginCodeEmail(recipientEmail: string, code: string) {
+  const mailer = await getTransporter();
+  if (!mailer) return false;
+  if (!isEmailDeliverable(recipientEmail)) return false;
+
+  try {
+    await mailer.sendMail({
+      from: SMTP_FROM,
+      to: recipientEmail,
+      subject: "Nutri Suddh Login Code",
+      html: `
+        <p>Your one-time login code is:</p>
+        <p style="font-size:20px;font-weight:700;letter-spacing:1px;">${escapeHtml(code)}</p>
+        <p>This code will expire in 15 minutes.</p>
+        <p>If you did not request this, you can ignore this email.</p>
+      `
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown email error";
+    lastEmailError = message;
+    console.error("[email] One-time login email failed", error);
     return false;
   }
 

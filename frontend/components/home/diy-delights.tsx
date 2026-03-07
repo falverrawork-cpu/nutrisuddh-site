@@ -3,42 +3,42 @@ import { Reveal } from "@/components/common/reveal";
 
 const ideas = [
   {
-    image: "/DIY/Chikki.png",
+    image: "https://ik.imagekit.io/Falverra/Chikki.png?updatedAt=1772868771449",
     title: "Makhana Chikki",
     copy: "Golden jaggery meets crunchy roasted makhana — a sweet, nutty indulgence you can’t stop at one."
   },
   {
-    image: "/DIY/energyBalls.png",
+    image: "https://ik.imagekit.io/Falverra/energyBalls.png?updatedAt=1772868771297",
     title: "Makhana Energy Balls",
     copy: "Bite-sized power packed with makhana, nuts, and natural sweetness for clean energy anytime."
   },
   {
-    image: "/DIY/chocolateIcecream.png",
+    image: "https://ik.imagekit.io/Falverra/chocolateIcecream.png?updatedAt=1772868770894",
     title: "Chocolate Coated Makhana Ice Cream",
     copy: "Creamy ice cream layered with crispy chocolate-coated makhana — indulgence with a delightful crunch."
   },
   {
-    image: "/DIY/Bhel.png",
+    image: "https://ik.imagekit.io/Falverra/Bhel.png?updatedAt=1772868771847",
     title: "Makhana Bhel",
     copy: "Light, crunchy makhana tossed with tangy spices and chutneys for a street-style flavor explosion."
   },
   {
-    image: "/DIY/proteinPowder.png",
+    image: "https://ik.imagekit.io/Falverra/proteinPowder.png?updatedAt=1772868771310",
     title: "Makhana Protein Powder",
     copy: "Pure makhana goodness finely crafted into a clean, plant-powered protein boost."
   },
   {
-    image: "/DIY/Keer.png",
+    image: "https://ik.imagekit.io/Falverra/Keer.png?updatedAt=1772868771413",
     title: "Makhana Kheer",
     copy: "Silky slow-cooked milk, tender makhana, and aromatic cardamom — tradition in every spoon."
   },
   {
-    image: "/DIY/trialMix.png",
+    image: "https://ik.imagekit.io/Falverra/trialMix.png?updatedAt=1772868771632",
     title: "Makhana Trail Mix",
     copy: "A wholesome crunch of roasted makhana, nuts, and dried fruits for the perfect anytime snack."
   },
   {
-    image: "/DIY/makhanaDip.png",
+    image: "https://ik.imagekit.io/Falverra/makhanaDip.png?updatedAt=1772868771735",
     title: "Makhana with Dip",
     copy: "Crispy roasted makhana paired with a creamy dip for the ultimate crunchy-creamy experience."
   }
