@@ -26,6 +26,20 @@ const getEstimatedDeliveryDate = (createdAt: string) => {
 const canDownloadInvoice = (order: Order) =>
   ["Order Confirmed", "Confirmed", "Dispatched", "Delivered", "Completed"].includes(order.status);
 
+const triggerBrowserDownload = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  window.setTimeout(() => {
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, 1000);
+};
+
 export function OrdersView() {
   const token = useAuthStore((state) => state.token);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -112,13 +126,8 @@ export function OrdersView() {
       }
 
       const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
       const filename = order.invoiceNumber ? `${order.invoiceNumber}.pdf` : `invoice-${order.id}.pdf`;
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      link.click();
-      URL.revokeObjectURL(url);
+      triggerBrowserDownload(blob, filename);
 
       if (!order.invoiceNumber) {
         setOrders((current) =>

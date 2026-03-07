@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { buildInvoiceHtml as buildStyledInvoiceHtml } from "./invoices/template";
 
 type MailOrderItem = {
   productTitle: string;
@@ -208,32 +209,31 @@ export function isEmailDeliverable(email?: string | null) {
   return true;
 }
 
-function buildInvoiceHtml(order: MailOrder) {
-  const rows = order.items
-    .map(
-      (item) =>
-        `<tr><td>${escapeHtml(item.productTitle)}</td><td>${escapeHtml(item.variantLabel)}</td><td>${item.quantity}</td><td>${formatCurrency(item.lineTotal)}</td></tr>`
-    )
-    .join("");
-
-  return `<!doctype html>
-<html><head><meta charset="utf-8" /><title>Invoice ${escapeHtml(order.id)}</title></head>
-<body style="font-family: Arial, sans-serif; color:#1f2937;">
-  <h2>Invoice</h2>
-  <p><strong>Order ID:</strong> ${escapeHtml(order.id)}</p>
-  <p><strong>Placed:</strong> ${escapeHtml(formatDateTime(order.createdAt))}</p>
-  <p><strong>Payment ID:</strong> ${escapeHtml(order.paymentId)}</p>
-  <p><strong>Status:</strong> ${escapeHtml(order.status)}</p>
-  <p><strong>Delivery Address:</strong> ${escapeHtml(order.addressLine1 ?? "-")}, ${escapeHtml(order.addressLine2 ?? "-")} - ${escapeHtml(order.pinCode ?? "-")}</p>
-  <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%;">
-    <thead><tr><th>Product</th><th>Variant</th><th>Qty</th><th>Amount</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <p><strong>Subtotal:</strong> ${formatCurrency(order.subtotal)}</p>
-  <p><strong>Discount:</strong> ${formatCurrency(order.discountAmount)}</p>
-  <p><strong>Shipping:</strong> ${order.shipping === 0 ? "Free" : formatCurrency(order.shipping)}</p>
-  <p><strong>Total:</strong> ${formatCurrency(order.total)}</p>
-</body></html>`;
+function buildConfirmationInvoiceHtml(order: MailOrder) {
+  return buildStyledInvoiceHtml({
+    invoiceNumber: order.invoiceNumber ?? order.id,
+    orderId: order.id,
+    orderDate: order.createdAt,
+    customerName: order.customerName ?? "Customer",
+    customerPhone: order.customerPhone ?? "-",
+    customerEmail: order.customerEmail ?? "-",
+    addressLine1: order.addressLine1 ?? "-",
+    addressLine2: order.addressLine2 ?? "",
+    city: order.shippingCity ?? "",
+    state: order.shippingState ?? "",
+    pincode: order.pinCode ?? "",
+    subtotal: order.subtotal,
+    discountCode: order.discountCode ?? null,
+    discountAmount: order.discountAmount,
+    shipping: order.shipping,
+    total: order.total,
+    items: order.items.map((item) => ({
+      productName: item.variantLabel ? `${item.productTitle} (${item.variantLabel})` : item.productTitle,
+      quantity: item.quantity,
+      productPrice: item.quantity > 0 ? item.lineTotal / item.quantity : item.lineTotal,
+      totalPrice: item.lineTotal
+    }))
+  });
 }
 
 function buildItemsList(order: MailOrder) {
@@ -275,7 +275,7 @@ export async function sendOrderConfirmationEmails(order: MailOrder) {
   const mailer = await getTransporter();
   if (!mailer) return false;
 
-  const invoiceHtml = buildInvoiceHtml(order);
+  const invoiceHtml = buildConfirmationInvoiceHtml(order);
   const itemList = buildItemsList(order);
   const address = [
     order.addressLine1 ?? "-",
