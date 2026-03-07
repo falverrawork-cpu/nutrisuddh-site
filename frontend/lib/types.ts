@@ -97,7 +97,12 @@ export type Order = {
   customerPhone?: string;
   addressLine1?: string;
   addressLine2?: string;
+  shippingCity?: string;
+  shippingState?: string;
   pinCode?: string;
+  invoiceNumber?: string;
+  invoiceUrl?: string;
+  invoiceGeneratedAt?: string;
   items: OrderItem[];
 };
 

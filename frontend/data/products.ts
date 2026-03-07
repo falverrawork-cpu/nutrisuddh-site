@@ -63,7 +63,7 @@ const customFlavorImageSources: Record<string, string[] | undefined> = {
     "https://ik.imagekit.io/Falverra/label(3).png?updatedAt=1772868770615"
   ],
   "salt-pepper": [
-    "https://ik.imagekit.io/Falverra/back(4).png?updatedAt=1772868770972",
+    "https://ik.imagekit.io/Falverra/front(4).png?updatedAt=1772868770939",
     "https://ik.imagekit.io/Falverra/back(4).png?updatedAt=1772868770972",
     "https://ik.imagekit.io/Falverra/label-2(4).png?updatedAt=1772868770586",
     "https://ik.imagekit.io/Falverra/label(4).png?updatedAt=1772868770503",

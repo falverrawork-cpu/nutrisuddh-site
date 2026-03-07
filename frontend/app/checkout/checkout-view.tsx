@@ -42,15 +42,68 @@ type AuthResponse = {
   user: AuthUser;
 };
 
+const INDIA_STATE_OPTIONS = {
+  states: [
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chhattisgarh",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal"
+  ],
+  unionTerritories: [
+    "Andaman & Nicobar Islands",
+    "Chandigarh",
+    "Dadra & Nagar Haveli and Daman & Diu",
+    "Delhi (NCT)",
+    "Jammu & Kashmir",
+    "Ladakh",
+    "Lakshadweep",
+    "Puducherry"
+  ]
+} as const;
+
 type DeliveryDetails = {
+  name: string;
+  email: string;
+  phone: string;
   addressLine1: string;
   addressLine2: string;
+  city: string;
+  state: string;
   pinCode: string;
 };
 
 const INITIAL_DELIVERY: DeliveryDetails = {
+  name: "",
+  email: "",
+  phone: "",
   addressLine1: "",
   addressLine2: "",
+  city: "",
+  state: "",
   pinCode: ""
 };
 
@@ -119,6 +172,16 @@ export function CheckoutView() {
       setScriptLoaded(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    setDelivery((current) => ({
+      ...current,
+      name: current.name || user.name || "",
+      email: current.email || user.email || "",
+      phone: current.phone || user.phone || ""
+    }));
+  }, [user]);
 
   useEffect(() => {
     if (!appliedCouponCode) return;
@@ -207,8 +270,13 @@ export function CheckoutView() {
   };
 
   const validateDeliveryDetails = () => {
-    if (!delivery.addressLine1.trim()) return "Please enter Address Line 1.";
-    if (!delivery.addressLine2.trim()) return "Please enter Address Line 2.";
+    if (!delivery.name.trim()) return "Please enter your name.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(delivery.email.trim())) return "Please enter a valid email address.";
+    if (!/^\d{10}$/.test(delivery.phone.replace(/\D/g, ""))) return "Please enter a valid 10-digit phone number.";
+    if (!delivery.addressLine1.trim()) return "Please enter House No./Flat Number.";
+    if (!delivery.addressLine2.trim()) return "Please enter your complete address.";
+    if (!delivery.city.trim()) return "Please enter your city.";
+    if (!delivery.state.trim()) return "Please select your state or union territory.";
     if (!/^\d{6}$/.test(delivery.pinCode.trim())) return "Please enter a valid 6-digit pin code.";
     return "";
   };
@@ -268,9 +336,9 @@ export function CheckoutView() {
 
     try {
       const checkoutIdentity = {
-        name: user?.name?.trim() || "Guest Customer",
-        email: user?.email?.trim() || `guest.${Date.now()}@nutrisuddh.local`,
-        phone: user?.phone?.trim() || ""
+        name: delivery.name.trim(),
+        email: delivery.email.trim(),
+        phone: delivery.phone.replace(/\D/g, "")
       };
 
       const order = await createOrder();
@@ -334,6 +402,8 @@ export function CheckoutView() {
               customerPhone: checkoutIdentity.phone || undefined,
               addressLine1: delivery.addressLine1,
               addressLine2: delivery.addressLine2,
+              shippingCity: delivery.city,
+              shippingState: delivery.state,
               pinCode: delivery.pinCode,
               items: lines.map((line) => ({
                 productId: line.product.id,
@@ -467,9 +537,34 @@ export function CheckoutView() {
           <section className="card-surface p-5">
             <h2 className="text-lg font-semibold">Delivery Address</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <input value={delivery.addressLine1} onChange={(e) => setDelivery((d) => ({ ...d, addressLine1: e.target.value }))} placeholder="Address line 1" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm sm:col-span-2" />
-              <input value={delivery.addressLine2} onChange={(e) => setDelivery((d) => ({ ...d, addressLine2: e.target.value }))} placeholder="Address line 2" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm sm:col-span-2" />
-              <input value={delivery.pinCode} onChange={(e) => setDelivery((d) => ({ ...d, pinCode: e.target.value }))} placeholder="Pin code" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
+              <input value={delivery.name} onChange={(e) => setDelivery((d) => ({ ...d, name: e.target.value }))} placeholder="Name" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
+              <input value={delivery.email} onChange={(e) => setDelivery((d) => ({ ...d, email: e.target.value }))} placeholder="Email" type="email" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
+              <input value={delivery.phone} onChange={(e) => setDelivery((d) => ({ ...d, phone: e.target.value }))} placeholder="Number" inputMode="numeric" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
+              <input value={delivery.addressLine1} onChange={(e) => setDelivery((d) => ({ ...d, addressLine1: e.target.value }))} placeholder="House No./Flat Number" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
+              <input value={delivery.addressLine2} onChange={(e) => setDelivery((d) => ({ ...d, addressLine2: e.target.value }))} placeholder="Enter Complete Address" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm sm:col-span-2" />
+              <input value={delivery.city} onChange={(e) => setDelivery((d) => ({ ...d, city: e.target.value }))} placeholder="City" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
+              <select
+                value={delivery.state}
+                onChange={(e) => setDelivery((d) => ({ ...d, state: e.target.value }))}
+                className="focus-ring rounded-lg border border-stone bg-white px-3 py-2 text-sm"
+              >
+                <option value="">Select State / Union Territory</option>
+                <optgroup label="States of India (28)">
+                  {INDIA_STATE_OPTIONS.states.map((stateName) => (
+                    <option key={stateName} value={stateName}>
+                      {stateName}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Union Territories (8)">
+                  {INDIA_STATE_OPTIONS.unionTerritories.map((territory) => (
+                    <option key={territory} value={territory}>
+                      {territory}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+              <input value={delivery.pinCode} onChange={(e) => setDelivery((d) => ({ ...d, pinCode: e.target.value }))} placeholder="Pin Code" inputMode="numeric" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
             </div>
           </section>
 

@@ -18,6 +18,12 @@ import {
   sendPasswordResetCodeEmail,
   type MailOrder
 } from "./lib/email";
+import {
+  ensureOrderInvoice,
+  getInvoiceDownloadFilename,
+  getOrderInvoiceRecord,
+  INVOICE_ELIGIBLE_STATUSES
+} from "./lib/invoices/service";
 
 type Role = "user" | "admin";
 type FormType = "contact" | "bulk";
@@ -48,6 +54,8 @@ type OrderInput = {
   customerPhone?: string;
   addressLine1?: string;
   addressLine2?: string;
+  shippingCity?: string;
+  shippingState?: string;
   pinCode?: string;
   items: OrderInputItem[];
 };
@@ -155,7 +163,12 @@ function serializeOrderRows(orderRows: any[], itemRows: any[]) {
     customerPhone: order.customer_phone ?? undefined,
     addressLine1: order.address_line1 ?? undefined,
     addressLine2: order.address_line2 ?? undefined,
+    shippingCity: order.shipping_city ?? undefined,
+    shippingState: order.shipping_state ?? undefined,
     pinCode: order.pin_code ?? undefined,
+    invoiceNumber: order.invoice_number ?? undefined,
+    invoiceUrl: order.invoice_number ? `/api/orders/${order.id}/invoice` : undefined,
+    invoiceGeneratedAt: order.invoice_generated_at ?? undefined,
     items: itemRows
       .filter((item) => item.order_id === order.id)
       .map((item) => ({
@@ -187,7 +200,11 @@ function toMailOrder(order: any, items: OrderInputItem[] | any[]): MailOrder {
     customerPhone: order.customer_phone ?? order.customerPhone ?? null,
     addressLine1: order.address_line1 ?? order.addressLine1 ?? null,
     addressLine2: order.address_line2 ?? order.addressLine2 ?? null,
+    shippingCity: order.shipping_city ?? order.shippingCity ?? null,
+    shippingState: order.shipping_state ?? order.shippingState ?? null,
     pinCode: order.pin_code ?? order.pinCode ?? null,
+    invoiceNumber: order.invoice_number ?? order.invoiceNumber ?? null,
+    invoicePath: order.invoice_path ?? order.invoicePath ?? null,
     items: items.map((item: any) => ({
       productTitle: item.product_title ?? item.productTitle,
       variantLabel: item.variant_label ?? item.variantLabel,
@@ -820,8 +837,8 @@ app.post("/api/orders", requireAuth, async (req: AuthRequest, res) => {
       `INSERT INTO orders (
         id, user_id, created_at, expected_delivery_date, status, payment_id,
         subtotal, discount_code, discount_amount, shipping, total,
-        customer_name, customer_email, customer_phone, address_line1, address_line2, pin_code
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        customer_name, customer_email, customer_phone, address_line1, address_line2, shipping_city, shipping_state, pin_code
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
     const insertItem = db.prepare(
@@ -848,6 +865,8 @@ app.post("/api/orders", requireAuth, async (req: AuthRequest, res) => {
         body.customerPhone ?? null,
         body.addressLine1 ?? null,
         body.addressLine2 ?? null,
+        body.shippingCity ?? null,
+        body.shippingState ?? null,
         body.pinCode ?? null
       );
 
@@ -884,12 +903,34 @@ app.post("/api/orders", requireAuth, async (req: AuthRequest, res) => {
         customerPhone: body.customerPhone,
         addressLine1: body.addressLine1,
         addressLine2: body.addressLine2,
+        shippingCity: body.shippingCity,
+        shippingState: body.shippingState,
         pinCode: body.pinCode
       },
       body.items
     );
 
-    sendOrderConfirmationEmails(mailOrder).catch((error) => {
+    let invoiceRecord:
+      | {
+          invoiceNumber: string;
+          invoicePath: string;
+          invoiceGeneratedAt: string;
+        }
+      | null = null;
+
+    if (INVOICE_ELIGIBLE_STATUSES.has(body.status || "Pending")) {
+      try {
+        invoiceRecord = await ensureOrderInvoice(body.id);
+      } catch (error) {
+        console.error(`Invoice generation failed for order ${body.id}`, error);
+      }
+    }
+
+    void sendOrderConfirmationEmails({
+      ...mailOrder,
+      invoiceNumber: invoiceRecord?.invoiceNumber ?? null,
+      invoicePath: invoiceRecord?.invoicePath ?? null
+    }).catch((error) => {
       console.error(`Order confirmation email failed for order ${body.id}`, error);
     });
 
@@ -923,6 +964,36 @@ app.get("/api/orders/my", requireAuth, (req: AuthRequest, res) => {
   } catch (error) {
     console.error("Fetch my orders failed", error);
     return res.status(500).json({ error: "Unable to fetch orders." });
+  }
+});
+
+app.get("/api/orders/:orderId/invoice", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const auth = req.auth;
+    if (!auth) return res.status(401).json({ error: "Unauthorized." });
+
+    const orderId = String(req.params.orderId);
+    const order = db
+      .prepare("SELECT id, user_id, status FROM orders WHERE id = ?")
+      .get(orderId) as { id: string; user_id: number; status: string } | undefined;
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
+    if (order.user_id !== auth.userId) {
+      return res.status(403).json({ error: "You are not allowed to access this invoice." });
+    }
+
+    if (!INVOICE_ELIGIBLE_STATUSES.has(order.status)) {
+      return res.status(400).json({ error: "Invoice is only available for confirmed orders." });
+    }
+
+    const invoice = await ensureOrderInvoice(orderId);
+    return res.download(invoice.invoicePath, getInvoiceDownloadFilename(invoice.invoiceNumber));
+  } catch (error) {
+    console.error("Download invoice failed", error);
+    return res.status(500).json({ error: "Unable to download invoice." });
   }
 });
 
@@ -1148,7 +1219,7 @@ app.delete("/api/admin/users/:userId", requireAuth, requireAdmin, (req: AuthRequ
 
 app.patch("/api/admin/orders/:orderId/status", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const orderId = req.params.orderId;
+    const orderId = String(req.params.orderId);
     const body = req.body as { status?: string };
     const nextStatus = body.status?.trim();
     const allowedStatuses = new Set(["Order Confirmed", "Dispatched", "Delivered"]);
@@ -1181,6 +1252,14 @@ app.patch("/api/admin/orders/:orderId/status", requireAuth, requireAdmin, async 
       .get(orderId) as any | undefined;
 
     if (updatedOrder) {
+      if (INVOICE_ELIGIBLE_STATUSES.has(nextStatus)) {
+        try {
+          await ensureOrderInvoice(orderId);
+        } catch (error) {
+          console.error(`Invoice generation failed for order ${orderId}`, error);
+        }
+      }
+
       const itemRows = db
         .prepare("SELECT * FROM order_items WHERE order_id = ? ORDER BY id ASC")
         .all(orderId) as any[];
@@ -1203,18 +1282,13 @@ app.patch("/api/admin/orders/:orderId/status", requireAuth, requireAdmin, async 
 
 app.delete("/api/admin/orders/:orderId", requireAuth, requireAdmin, (req, res) => {
   try {
-    const orderId = req.params.orderId;
+    const orderId = String(req.params.orderId);
     const order = db
       .prepare("SELECT id, status FROM orders WHERE id = ?")
       .get(orderId) as { id: string; status: string } | undefined;
 
     if (!order) {
       return res.status(404).json({ error: "Order not found." });
-    }
-
-    const deletableStatuses = new Set(["Delivered", "Completed"]);
-    if (!deletableStatuses.has(order.status)) {
-      return res.status(400).json({ error: "Only completed/delivered orders can be deleted." });
     }
 
     const result = db.prepare("DELETE FROM orders WHERE id = ?").run(orderId);

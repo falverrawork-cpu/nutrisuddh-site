@@ -17,87 +17,20 @@ const formatDate = (iso: string) =>
     year: "numeric"
   });
 
-const escapeHtml = (value: string) =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-
-function buildInvoiceHtml(order: Order) {
-  const rows = order.items
-    .map(
-      (item) =>
-        `<tr><td>${escapeHtml(item.productTitle)}</td><td>${escapeHtml(item.variantLabel)}</td><td>${item.quantity}</td><td>${formatCurrency(item.lineTotal)}</td></tr>`
-    )
-    .join("");
-
-  return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Invoice ${escapeHtml(order.id)}</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }
-    h1 { margin: 0 0 12px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-    th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 13px; }
-    th { background: #f9fafb; }
-    .meta { margin: 4px 0; font-size: 13px; }
-    .totals { margin-top: 16px; width: 320px; margin-left: auto; }
-    .totals div { display: flex; justify-content: space-between; padding: 4px 0; }
-    .bold { font-weight: 700; }
-  </style>
-</head>
-<body>
-  <h1>Invoice</h1>
-  <p class="meta"><strong>Order ID:</strong> ${escapeHtml(order.id)}</p>
-  <p class="meta"><strong>Payment ID:</strong> ${escapeHtml(order.paymentId)}</p>
-  <p class="meta"><strong>Placed:</strong> ${formatDate(order.createdAt)}</p>
-  <p class="meta"><strong>Customer:</strong> ${escapeHtml(order.customerName ?? "-")}</p>
-  <p class="meta"><strong>Email:</strong> ${escapeHtml(order.customerEmail ?? "-")}</p>
-  <p class="meta"><strong>Phone:</strong> ${escapeHtml(order.customerPhone ?? "-")}</p>
-  <p class="meta"><strong>Address:</strong> ${escapeHtml(order.addressLine1 ?? "-")}, ${escapeHtml(order.addressLine2 ?? "-")} - ${escapeHtml(order.pinCode ?? "-")}</p>
-
-  <table>
-    <thead>
-      <tr><th>Product</th><th>Variant</th><th>Qty</th><th>Amount</th></tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
-
-  <div class="totals">
-    <div><span>Subtotal</span><span>${formatCurrency(order.subtotal)}</span></div>
-    <div><span>${escapeHtml(order.discountCode ?? "Discount")}</span><span>-${formatCurrency(order.discountAmount)}</span></div>
-    <div><span>Shipping</span><span>${order.shipping === 0 ? "Free" : formatCurrency(order.shipping)}</span></div>
-    <div class="bold"><span>Total</span><span>${formatCurrency(order.total)}</span></div>
-  </div>
-</body>
-</html>`;
-}
-
-function downloadInvoice(order: Order) {
-  const html = buildInvoiceHtml(order);
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `invoice-${order.id}.html`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 const getEstimatedDeliveryDate = (createdAt: string) => {
   const date = new Date(createdAt);
   date.setDate(date.getDate() + 7);
   return date;
 };
 
+const canDownloadInvoice = (order: Order) =>
+  ["Order Confirmed", "Confirmed", "Dispatched", "Delivered", "Completed"].includes(order.status);
+
 export function OrdersView() {
   const token = useAuthStore((state) => state.token);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const addToast = useUIStore((state) => state.addToast);
   const [params] = useSearchParams();
   const placedOrderId = params.get("placed");
@@ -161,6 +94,51 @@ export function OrdersView() {
       window.clearInterval(interval);
     };
   }, [addToast, token]);
+
+  const downloadInvoice = async (order: Order) => {
+    if (!token) return;
+
+    setDownloadingInvoiceId(order.id);
+    try {
+      const response = await fetch(`/api/orders/${order.id}/invoice`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(result?.error ?? "Unable to download invoice.");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const filename = order.invoiceNumber ? `${order.invoiceNumber}.pdf` : `invoice-${order.id}.pdf`;
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      if (!order.invoiceNumber) {
+        setOrders((current) =>
+          current.map((item) =>
+            item.id === order.id
+              ? {
+                  ...item,
+                  invoiceNumber: filename.replace(/\.pdf$/i, ""),
+                  invoiceUrl: `/api/orders/${order.id}/invoice`
+                }
+              : item
+          )
+        );
+      }
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "Unable to download invoice.", "info");
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
+  };
 
   return (
     <div>
@@ -241,6 +219,17 @@ export function OrdersView() {
                 >
                   {isExpanded ? "Hide Details" : "View More Details"}
                 </button>
+
+                {canDownloadInvoice(order) && (
+                  <button
+                    type="button"
+                    onClick={() => downloadInvoice(order)}
+                    disabled={downloadingInvoiceId === order.id}
+                    className="focus-ring mt-4 ml-2 rounded-full bg-pine px-4 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {downloadingInvoiceId === order.id ? "Generating Invoice..." : "Download Invoice"}
+                  </button>
+                )}
 
                 {isExpanded && (
                   <div className="mt-4 rounded-xl border border-stone bg-sand/40 p-4 text-sm">

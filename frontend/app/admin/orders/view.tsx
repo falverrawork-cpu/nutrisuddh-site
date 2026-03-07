@@ -735,7 +735,7 @@ export function AdminOrdersView() {
                         <button
                           type="button"
                           onClick={() => deleteOrder(order.id)}
-                          disabled={deletingOrderId === order.id || !(order.status === "Delivered" || order.status === "Completed")}
+                          disabled={deletingOrderId === order.id}
                           className="focus-ring rounded-full border border-red-300 px-3 py-1 text-xs text-red-700 disabled:opacity-50"
                         >
                           Delete

@@ -44,7 +44,12 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_phone TEXT,
   address_line1 TEXT,
   address_line2 TEXT,
+  shipping_city TEXT,
+  shipping_state TEXT,
   pin_code TEXT,
+  invoice_number TEXT UNIQUE,
+  invoice_path TEXT,
+  invoice_generated_at TEXT,
   last_status_email_sent_at TEXT,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -101,10 +106,35 @@ CREATE TABLE IF NOT EXISTS form_submissions (
   replied_at TEXT,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS invoice_sequences (
+  year INTEGER PRIMARY KEY,
+  current_value INTEGER NOT NULL
+);
 `);
 
 const orderColumns = db.prepare("PRAGMA table_info(orders)").all() as Array<{ name: string }>;
 const hasLastStatusEmailColumn = orderColumns.some((column) => column.name === "last_status_email_sent_at");
 if (!hasLastStatusEmailColumn) {
   db.exec("ALTER TABLE orders ADD COLUMN last_status_email_sent_at TEXT");
+}
+const hasShippingCityColumn = orderColumns.some((column) => column.name === "shipping_city");
+if (!hasShippingCityColumn) {
+  db.exec("ALTER TABLE orders ADD COLUMN shipping_city TEXT");
+}
+const hasShippingStateColumn = orderColumns.some((column) => column.name === "shipping_state");
+if (!hasShippingStateColumn) {
+  db.exec("ALTER TABLE orders ADD COLUMN shipping_state TEXT");
+}
+const hasInvoiceNumberColumn = orderColumns.some((column) => column.name === "invoice_number");
+if (!hasInvoiceNumberColumn) {
+  db.exec("ALTER TABLE orders ADD COLUMN invoice_number TEXT");
+}
+const hasInvoicePathColumn = orderColumns.some((column) => column.name === "invoice_path");
+if (!hasInvoicePathColumn) {
+  db.exec("ALTER TABLE orders ADD COLUMN invoice_path TEXT");
+}
+const hasInvoiceGeneratedAtColumn = orderColumns.some((column) => column.name === "invoice_generated_at");
+if (!hasInvoiceGeneratedAtColumn) {
+  db.exec("ALTER TABLE orders ADD COLUMN invoice_generated_at TEXT");
 }

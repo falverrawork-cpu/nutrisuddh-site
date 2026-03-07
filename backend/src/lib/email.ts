@@ -23,7 +23,11 @@ export type MailOrder = {
   customerPhone?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
+  shippingCity?: string | null;
+  shippingState?: string | null;
   pinCode?: string | null;
+  invoiceNumber?: string | null;
+  invoicePath?: string | null;
   items: MailOrderItem[];
 };
 
@@ -242,24 +246,78 @@ function buildItemsList(order: MailOrder) {
     .join("");
 }
 
+function buildItemsRows(order: MailOrder, includePrice: boolean) {
+  if (!order.items.length) return "<p>No items</p>";
+  return order.items
+    .map((item) =>
+      includePrice
+        ? `<p>${escapeHtml(item.productTitle)} × ${item.quantity} - ${formatCurrency(item.lineTotal)}</p>`
+        : `<p>${escapeHtml(item.productTitle)} × ${item.quantity}</p>`
+    )
+    .join("");
+}
+
+function buildAddressBlock(order: MailOrder) {
+  return [
+    order.customerName ?? "-",
+    order.addressLine1 ?? "-",
+    order.addressLine2 ?? null,
+    [order.shippingCity, order.shippingState].filter(Boolean).join(", ") || null,
+    order.pinCode ? `PIN: ${escapeHtml(order.pinCode)}` : null,
+    order.customerPhone ? `Phone: ${escapeHtml(order.customerPhone)}` : null
+  ]
+    .filter(Boolean)
+    .map((line) => `<p>${line}</p>`)
+    .join("");
+}
+
 export async function sendOrderConfirmationEmails(order: MailOrder) {
   const mailer = await getTransporter();
-  if (!mailer) return;
+  if (!mailer) return false;
 
   const invoiceHtml = buildInvoiceHtml(order);
   const itemList = buildItemsList(order);
-  const address = `${order.addressLine1 ?? "-"}, ${order.addressLine2 ?? "-"} - ${order.pinCode ?? "-"}`;
+  const address = [
+    order.addressLine1 ?? "-",
+    order.addressLine2 ?? null,
+    [order.shippingCity, order.shippingState].filter(Boolean).join(", ") || null,
+    order.pinCode ? `PIN ${order.pinCode}` : null
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const addressBlock = buildAddressBlock(order);
+  const orderItemsWithPrice = buildItemsRows(order, true);
+  const attachments = order.invoicePath
+    ? [
+        {
+          filename: `${order.invoiceNumber || order.id}.pdf`,
+          path: order.invoicePath
+        }
+      ]
+    : [
+        {
+          filename: `invoice-${order.id}.html`,
+          content: invoiceHtml
+        }
+      ];
 
   const customerHtml = `
-    <p>Hi ${escapeHtml(order.customerName ?? "Customer")},</p>
-    <p>Your order <strong>${escapeHtml(order.id)}</strong> has been confirmed.</p>
-    <p><strong>Status:</strong> ${escapeHtml(order.status)}<br/>
-    <strong>Expected Delivery:</strong> ${escapeHtml(formatDateTime(order.expectedDeliveryDate))}<br/>
-    <strong>Total:</strong> ${formatCurrency(order.total)}</p>
-    <p><strong>Items:</strong></p>
-    <ul>${itemList}</ul>
-    <p><strong>Delivery Address:</strong> ${escapeHtml(address)}</p>
-    <p>Thank you for ordering from Nutri Suddh.</p>
+    <p>Dear Customer,</p>
+    <p>Thank you for shopping with <strong>Nutrisuddh</strong>. Your order has been <strong>successfully confirmed</strong> and is now being prepared by our team.</p>
+    <p>Please find your <strong>invoice attached</strong> with this email for your records.</p>
+    <p><strong>Order Details</strong></p>
+    <p><strong>Order ID:</strong> ${escapeHtml(order.id)}</p>
+    <p><strong>Order Date:</strong> ${escapeHtml(formatDateTime(order.createdAt))}</p>
+    <p><strong>Items Ordered:</strong></p>
+    ${orderItemsWithPrice}
+    <p><strong>Subtotal:</strong> ${formatCurrency(order.subtotal)}</p>
+    <p><strong>Shipping:</strong> ${order.shipping === 0 ? "Free" : formatCurrency(order.shipping)}</p>
+    <p><strong>Total Amount Paid:</strong> ${formatCurrency(order.total)}</p>
+    <p><strong>Shipping Address:</strong></p>
+    ${addressBlock}
+    <p>We will notify you once your order has been <strong>dispatched</strong>.</p>
+    <p>Thank you for choosing <strong>Nutrisuddh - Pure. Nutritious. Honest.</strong></p>
+    <p>Warm regards,<br/>Team Nutrisuddh<br/><a href="https://www.nutrisuddh.com">www.nutrisuddh.com</a></p>
   `;
 
   const adminHtml = `
@@ -282,12 +340,7 @@ export async function sendOrderConfirmationEmails(order: MailOrder) {
         to: order.customerEmail as string,
         subject: `Order Confirmed: ${order.id}`,
         html: customerHtml,
-        attachments: [
-          {
-            filename: `invoice-${order.id}.html`,
-            content: invoiceHtml
-          }
-        ]
+        attachments
       })
     );
   }
@@ -299,22 +352,19 @@ export async function sendOrderConfirmationEmails(order: MailOrder) {
         to: ADMIN_NOTIFICATION_EMAIL,
         subject: `New Order: ${order.id}`,
         html: adminHtml,
-        attachments: [
-          {
-            filename: `invoice-${order.id}.html`,
-            content: invoiceHtml
-          }
-        ]
+        attachments
       })
     );
   }
 
   try {
     await Promise.all(tasks);
+    return tasks.length > 0;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown email error";
     lastEmailError = message;
     console.error("[email] Order confirmation send failed", error);
+    return false;
   }
 }
 
@@ -323,21 +373,56 @@ export async function sendOrderStatusUpdateEmail(order: MailOrder) {
   if (!mailer) return false;
   if (!isEmailDeliverable(order.customerEmail)) return false;
 
-  const address = `${order.addressLine1 ?? "-"}, ${order.addressLine2 ?? "-"} - ${order.pinCode ?? "-"}`;
+  const addressBlock = buildAddressBlock(order);
+  const orderItemsWithoutPrice = buildItemsRows(order, false);
+  const deliveredOn = formatDateTime(new Date().toISOString());
+
+  const html =
+    order.status === "Dispatched"
+      ? `
+        <p>Dear Customer,</p>
+        <p>Great news! Your <strong>Nutrisuddh order has been dispatched</strong> and is now on its way to you.</p>
+        <p><strong>Order Details</strong></p>
+        <p><strong>Order ID:</strong> ${escapeHtml(order.id)}</p>
+        <p><strong>Items:</strong></p>
+        ${orderItemsWithoutPrice}
+        <p><strong>Shipping Address:</strong></p>
+        ${addressBlock}
+        <p>Your package should reach you within the estimated delivery timeframe.</p>
+        <p>Thank you for choosing <strong>Nutrisuddh for healthy snacking.</strong></p>
+        <p>Warm regards,<br/>Team Nutrisuddh<br/><a href="https://www.nutrisuddh.com">www.nutrisuddh.com</a></p>
+      `
+      : order.status === "Delivered" || order.status === "Completed"
+        ? `
+          <p>Dear Customer,</p>
+          <p>Your <strong>Nutrisuddh order has been successfully delivered.</strong> We hope you enjoy the goodness and taste of our products.</p>
+          <p><strong>Order Details</strong></p>
+          <p><strong>Order ID:</strong> ${escapeHtml(order.id)}</p>
+          <p><strong>Items Delivered:</strong></p>
+          ${orderItemsWithoutPrice}
+          <p><strong>Delivered On:</strong> ${escapeHtml(deliveredOn)}</p>
+          <p>If everything arrived safely, we would love to hear your feedback. Your review helps us continue delivering the best quality snacks.</p>
+          <p>If you need any assistance, feel free to reply to this email.</p>
+          <p>Thank you for being a part of the <strong>Nutrisuddh family.</strong></p>
+          <p>Warm regards,<br/>Team Nutrisuddh<br/><a href="https://www.nutrisuddh.com">www.nutrisuddh.com</a></p>
+        `
+        : `
+          <p>Dear Customer,</p>
+          <p>Your <strong>Nutrisuddh order has been successfully confirmed.</strong></p>
+          <p><strong>Order Details</strong></p>
+          <p><strong>Order ID:</strong> ${escapeHtml(order.id)}</p>
+          <p><strong>Items Ordered:</strong></p>
+          ${orderItemsWithoutPrice}
+          <p>We will notify you once your order has been <strong>dispatched</strong>.</p>
+          <p>Warm regards,<br/>Team Nutrisuddh<br/><a href="https://www.nutrisuddh.com">www.nutrisuddh.com</a></p>
+        `;
 
   try {
     await mailer.sendMail({
       from: SMTP_FROM,
       to: order.customerEmail as string,
       subject: `Order Status Update: ${order.id} (${order.status})`,
-      html: `
-        <p>Hi ${escapeHtml(order.customerName ?? "Customer")},</p>
-        <p>Your order <strong>${escapeHtml(order.id)}</strong> status is currently:</p>
-        <p><strong>${escapeHtml(order.status)}</strong></p>
-        <p><strong>Expected Delivery:</strong> ${escapeHtml(formatDateTime(order.expectedDeliveryDate))}</p>
-        <p><strong>Delivery Address:</strong> ${escapeHtml(address)}</p>
-        <p>We will continue sending daily status updates until your order is delivered.</p>
-      `
+      html
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown email error";
