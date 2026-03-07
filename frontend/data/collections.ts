@@ -35,7 +35,7 @@ export const collections: Collection[] = [
   },
   {
     handle: "flavoured-makhana",
-    title: "Indivisual Flavours",
+    title: "Individual Flavours",
     description: "Individual flavoured makhana packs. Minimum order: 3 packs.",
     heroImage: categoryBanner.flavoured,
     productSlugs: [

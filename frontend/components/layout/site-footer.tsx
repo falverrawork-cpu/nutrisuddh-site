@@ -52,9 +52,8 @@ export function SiteFooter() {
         <div className="container-base flex flex-col items-center justify-between gap-2 text-xs text-gray-500 sm:flex-row">
           <p>© {new Date().getFullYear()} Nutri Suddh. All rights reserved.</p>
           <div className="flex items-center gap-4">
-            <Link href="https://www.instagram.com/" className="link-hover" target="_blank" rel="noreferrer noopener">Instagram</Link>
-            <Link href="https://www.youtube.com/" className="link-hover" target="_blank" rel="noreferrer noopener">YouTube</Link>
-            <Link href="https://www.linkedin.com/" className="link-hover" target="_blank" rel="noreferrer noopener">LinkedIn</Link>
+            <Link href="https://www.instagram.com/nutrisuddh/" className="link-hover" target="_blank" rel="noreferrer noopener">Instagram</Link>
+            <Link href="https://www.linkedin.com/company/nutrisuddh/" className="link-hover" target="_blank" rel="noreferrer noopener">LinkedIn</Link>
           </div>
         </div>
       </div>

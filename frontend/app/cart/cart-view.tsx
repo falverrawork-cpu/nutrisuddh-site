@@ -15,12 +15,13 @@ export function CartView() {
   const [showConfetti, setShowConfetti] = useState(false);
 
   const cart = useShopStore((state) => state.cart);
+  const appliedCouponCode = useShopStore((state) => state.appliedCouponCode);
   const setCartQuantity = useShopStore((state) => state.setCartQuantity);
   const removeFromCart = useShopStore((state) => state.removeFromCart);
   const addToast = useUIStore((state) => state.addToast);
 
   const lines = getDetailedCartItems(cart);
-  const pricing = getCartPricing(cart);
+  const pricing = getCartPricing(cart, appliedCouponCode);
 
   if (lines.length === 0) {
     return (
@@ -46,6 +47,8 @@ export function CartView() {
                 key={`${line.item.productId}-${line.item.variantId}`}
                 line={line}
                 onQuantityChange={(quantity) => {
+                  if (line.item.sourceCouponCode) return;
+
                   const nextEligibleQty = isEligibleSinglePack(line.product)
                     ? Math.max(0, pricing.eligibleQty - line.item.quantity + quantity)
                     : pricing.eligibleQty;
@@ -62,6 +65,8 @@ export function CartView() {
                   }
                 }}
                 onRemove={() => {
+                  if (line.item.sourceCouponCode) return;
+
                   const nextEligibleQty = isEligibleSinglePack(line.product)
                     ? Math.max(0, pricing.eligibleQty - line.item.quantity)
                     : pricing.eligibleQty;
@@ -78,7 +83,7 @@ export function CartView() {
           <h3 className="text-lg font-semibold">Order summary</h3>
           <div className="mt-4 space-y-2 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(pricing.subtotal)}</span></div>
-            {pricing.discountCode && (
+            {pricing.discountCode && pricing.discountAmount > 0 && (
               <div className="flex justify-between text-pine">
                 <span>Discount</span>
                 <span>-{formatCurrency(pricing.discountAmount)}</span>

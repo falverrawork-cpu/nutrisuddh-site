@@ -5,7 +5,7 @@ export const SINGLE_PACK_MRP = 299;
 export const SINGLE_PACK_SELLING_PRICE = 219;
 export const SHIPPING_FEE_DEFAULT = 79;
 
-export type DiscountCode = "COMBO03" | "YUVA200" | "PARTY06" | "YUVA400" | "NAVA001";
+export type DiscountCode = "COMBO03" | "YUVA200" | "PARTY06" | "YUVA400" | "NAVA001" | "YUVA03";
 
 export type CartNudge = {
   message: string;
@@ -53,8 +53,13 @@ export const COUPON_OFFERS: CouponOffer[] = [
   { code: "YUVA200", label: "YUVA200", description: "Flat ₹200 OFF + Free Delivery" },
   { code: "PARTY06", label: "PARTY06", description: "30% OFF + Free Delivery" },
   { code: "YUVA400", label: "YUVA400", description: "Flat ₹400 OFF + Free Delivery" },
-  { code: "NAVA001", label: "NAVA001", description: "Total becomes ₹1 + Free Delivery" }
+  { code: "NAVA001", label: "NAVA001", description: "Total becomes ₹1 + Free Delivery" },
+  { code: "YUVA03", label: "YUVA03", description: "Cart total becomes Rs 100 + Free Delivery" }
 ];
+
+function isCouponManagedLine(item: CartItem) {
+  return Boolean(item.sourceCouponCode);
+}
 
 export function isComboPackProduct(product: Product) {
   return product.tags.includes("combo-pack");
@@ -70,6 +75,37 @@ export function isComboBundle3Product(product: Product) {
 
 export function isComboBundle6Product(product: Product) {
   return isComboPackProduct(product) && product.tags.includes("bundle-6");
+}
+
+function getPaidCartMetrics(cart: CartItem[]) {
+  const lines = getDetailedCartItems(cart).filter((line) => !isCouponManagedLine(line.item));
+  const singlePackQty = lines
+    .filter((line) => isEligibleSinglePack(line.product))
+    .reduce((sum, line) => sum + line.item.quantity, 0);
+  const comboBundle3Qty = lines
+    .filter((line) => isComboBundle3Product(line.product))
+    .reduce((sum, line) => sum + line.item.quantity, 0);
+  const comboBundle6Qty = lines
+    .filter((line) => isComboBundle6Product(line.product))
+    .reduce((sum, line) => sum + line.item.quantity, 0);
+
+  return {
+    lines,
+    singlePackQty,
+    comboBundle3Qty,
+    comboBundle6Qty
+  };
+}
+
+function isEligibleForYuva03(cart: CartItem[]) {
+  const { lines, singlePackQty, comboBundle3Qty, comboBundle6Qty } = getPaidCartMetrics(cart);
+  const hasOnlySingles = lines.length > 0 && lines.every((line) => isEligibleSinglePack(line.product));
+  const hasOnlyCombo3 = lines.length === 1 && isComboBundle3Product(lines[0].product) && lines[0].item.quantity === 1;
+
+  return (
+    (hasOnlySingles && singlePackQty === 3 && comboBundle3Qty === 0 && comboBundle6Qty === 0) ||
+    (hasOnlyCombo3 && singlePackQty === 0 && comboBundle3Qty === 1 && comboBundle6Qty === 0)
+  );
 }
 
 export function getCartNudge(eligibleQty: number): CartNudge {
@@ -116,13 +152,13 @@ export function getCartHighlightState(cart: CartItem[]): CartHighlightState {
   const lines = getDetailedCartItems(cart);
   const subtotal = lines.reduce((sum, line) => sum + line.linePrice, 0);
   const singleQty = lines
-    .filter((line) => isEligibleSinglePack(line.product))
+    .filter((line) => !isCouponManagedLine(line.item) && isEligibleSinglePack(line.product))
     .reduce((sum, line) => sum + line.item.quantity, 0);
   const comboBundle3Qty = lines
-    .filter((line) => isComboBundle3Product(line.product))
+    .filter((line) => !isCouponManagedLine(line.item) && isComboBundle3Product(line.product))
     .reduce((sum, line) => sum + line.item.quantity, 0);
   const comboBundle6Qty = lines
-    .filter((line) => isComboBundle6Product(line.product))
+    .filter((line) => !isCouponManagedLine(line.item) && isComboBundle6Product(line.product))
     .reduce((sum, line) => sum + line.item.quantity, 0);
   const comboQty = comboBundle3Qty + comboBundle6Qty;
   const savedNow = lines.reduce((sum, line) => {
@@ -204,7 +240,7 @@ export function getCartHighlightState(cart: CartItem[]): CartHighlightState {
       progressCurrent: singleQty,
       progressTarget: 6,
       projectedSavings,
-      fomoLine: "Most customers add 2 more to unlock the offer 😉",
+      fomoLine: `Most customers add ${remaining} more to unlock the offer 😉`,
       primaryCtaLabel: "Add More & Save",
       addMoreHref: "/collections/flavoured-makhana",
       showPrimaryCta: true,
@@ -234,23 +270,14 @@ export function getCartHighlightState(cart: CartItem[]): CartHighlightState {
 function normalizeCouponCode(rawCode: string | null | undefined): DiscountCode | null {
   if (!rawCode) return null;
   const code = rawCode.trim().toUpperCase();
-  if (code === "COMBO03" || code === "YUVA200" || code === "PARTY06" || code === "YUVA400" || code === "NAVA001") {
+  if (code === "COMBO03" || code === "YUVA200" || code === "PARTY06" || code === "YUVA400" || code === "NAVA001" || code === "YUVA03") {
     return code;
   }
   return null;
 }
 
 export function getEligibleCouponCodes(cart: CartItem[]): DiscountCode[] {
-  const lines = getDetailedCartItems(cart);
-  const singlePackQty = lines
-    .filter((line) => isEligibleSinglePack(line.product))
-    .reduce((sum, line) => sum + line.item.quantity, 0);
-  const comboBundle3Qty = lines
-    .filter((line) => isComboBundle3Product(line.product))
-    .reduce((sum, line) => sum + line.item.quantity, 0);
-  const comboBundle6Qty = lines
-    .filter((line) => isComboBundle6Product(line.product))
-    .reduce((sum, line) => sum + line.item.quantity, 0);
+  const { lines: paidLines, singlePackQty, comboBundle3Qty, comboBundle6Qty } = getPaidCartMetrics(cart);
 
   const eligible = new Set<DiscountCode>();
 
@@ -262,8 +289,12 @@ export function getEligibleCouponCodes(cart: CartItem[]): DiscountCode[] {
     eligible.add("YUVA200");
   }
 
-  if (lines.length > 0) {
+  if (paidLines.length > 0) {
     eligible.add("NAVA001");
+  }
+
+  if (isEligibleForYuva03(cart)) {
+    eligible.add("YUVA03");
   }
 
   return Array.from(eligible);
@@ -315,6 +346,8 @@ export function getCartPricing(cart: CartItem[], couponCodeInput?: string | null
     discountAmount = 400;
   } else if (discountCode === "NAVA001") {
     discountAmount = Math.max(0, subtotal - 1);
+  } else if (discountCode === "YUVA03") {
+    discountAmount = Math.max(0, subtotal - 100);
   }
 
   discountAmount = Math.min(subtotal, Math.round(discountAmount));
@@ -345,6 +378,10 @@ export function getCouponIneligibilityReason(codeInput: string): string {
 
   if (code === "NAVA001") {
     return "";
+  }
+
+  if (code === "YUVA03") {
+    return "Need exactly 3 single packs or exactly 1 Combo of 3 pack, with no extra items.";
   }
 
   if (code === "COMBO03" || code === "YUVA200") {

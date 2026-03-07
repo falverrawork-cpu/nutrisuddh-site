@@ -161,10 +161,13 @@ html[data-theme="dark"] .bg-white\/95 {
 
 html[data-theme="dark"] .text-ink,
 html[data-theme="dark"] .text-gray-700,
-html[data-theme="dark"] .text-gray-600,
+html[data-theme="dark"] .text-gray-600 {
+  color: #d1d5db !important;
+}
+
 html[data-theme="dark"] .text-gray-500,
 html[data-theme="dark"] .text-gray-400 {
-  color: #d1d5db !important;
+  color: #fbb040 !important;
 }
 
 html[data-theme="dark"] .text-white\/90 {

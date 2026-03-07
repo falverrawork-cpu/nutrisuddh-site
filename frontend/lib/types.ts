@@ -65,6 +65,8 @@ export type CartItem = {
   productId: string;
   variantId: string;
   quantity: number;
+  isFreeItem?: boolean;
+  sourceCouponCode?: string;
 };
 
 export type OrderItem = {

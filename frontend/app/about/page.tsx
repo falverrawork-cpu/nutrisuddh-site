@@ -1,6 +1,7 @@
 import Image from "@/components/common/app-image";
 import { products } from "@/data/products";
 import { BulkSection } from "@/components/home/bulk-section";
+import { DIYDelights } from "@/components/home/diy-delights";
 
 export default function AboutPage() {
   const individualPacks = products.filter((product) => product.tags.includes("makhana-single"));
@@ -11,20 +12,6 @@ export default function AboutPage() {
     (product) => product.tags.includes("combo-pack") && product.tags.includes("bundle-6")
   );
 
-  const diyIdeas = [
-    {
-      title: "Tangy Makhana Chaat",
-      copy: "Mix makhana with chopped onion, tomato, coriander, lemon juice, and a pinch of chaat masala."
-    },
-    {
-      title: "Curd Crunch Bowl",
-      copy: "Add makhana over chilled curd with roasted cumin and mint for a light, filling snack."
-    },
-    {
-      title: "Evening Trail Mix",
-      copy: "Blend makhana with roasted peanuts, curry leaves, and mild masala for tea-time munching."
-    }
-  ];
   const contentHighlights = [
     "SUPERFOOD",
     "NATURALLY GLUTEN FREE",
@@ -56,18 +43,20 @@ export default function AboutPage() {
         </p>
       </div>
 
-      <div className="mt-8 rounded-2xl border border-pine bg-pine p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-white">Content Card</h2>
-        <p className="mt-1 text-xs text-white/90">Nutri Suddh promise at a glance.</p>
+      <div className="mt-8 rounded-2xl border border-stone bg-white p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink">Benefits</h2>
+        <p className="mt-1 text-xs text-gray-600">Nutri Suddh promise at a glance.</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {contentHighlights.map((item) => (
-            <div key={item} className="flex items-center gap-2 rounded-xl border border-white/40 bg-white/95 px-3 py-2.5 shadow-sm">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-pine text-[11px] font-bold text-white">✓</span>
-              <p className="text-sm font-semibold text-pine">{item}</p>
+            <div key={item} className="flex items-center gap-2 rounded-xl border border-stone px-3 py-2.5">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-pine/40 text-[11px] font-bold text-pine">✓</span>
+              <p className="text-sm font-semibold text-ink">{item}</p>
             </div>
           ))}
         </div>
       </div>
+
+      <DIYDelights />
 
       <section className="mt-12">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-pine">Our Collection</p>
@@ -126,22 +115,6 @@ export default function AboutPage() {
                 <p className="mt-1 text-sm text-gray-600">{product.subtitle}</p>
               </div>
             </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-12 rounded-3xl border border-stone bg-white p-6 sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-pine">DIY Delights</p>
-        <h2 className="mt-2 font-display text-3xl text-ink sm:text-4xl">Snack the Makhana Way</h2>
-        <p className="mt-3 max-w-3xl text-sm text-gray-700 sm:text-base">
-          Easy recipe-style snacking ideas inspired by our 250g pack serving suggestions.
-        </p>
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {diyIdeas.map((idea) => (
-            <div key={idea.title} className="rounded-2xl border border-stone/80 bg-sand/40 p-4">
-              <p className="text-sm font-semibold text-ink">{idea.title}</p>
-              <p className="mt-2 text-sm leading-6 text-gray-700">{idea.copy}</p>
-            </div>
           ))}
         </div>
       </section>

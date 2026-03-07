@@ -13,7 +13,6 @@ import { useUIStore } from "@/stores/ui-store";
 import { getDetailedCartItems } from "@/lib/cart";
 import {
   COUPON_OFFERS,
-  type DiscountCode,
   getCartNudge,
   getCartPricing,
   getCouponIneligibilityReason,
@@ -61,16 +60,17 @@ export function CheckoutView() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [couponInput, setCouponInput] = useState("");
-  const [appliedCouponCode, setAppliedCouponCode] = useState<DiscountCode | null>(null);
   const [showCouponList, setShowCouponList] = useState(false);
   const [activeRecommendation, setActiveRecommendation] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [delivery, setDelivery] = useState<DeliveryDetails>(INITIAL_DELIVERY);
 
   const cart = useShopStore((state) => state.cart);
+  const appliedCouponCode = useShopStore((state) => state.appliedCouponCode);
   const addToCart = useShopStore((state) => state.addToCart);
   const setCartQuantity = useShopStore((state) => state.setCartQuantity);
   const removeFromCart = useShopStore((state) => state.removeFromCart);
+  const setAppliedCouponCode = useShopStore((state) => state.setAppliedCouponCode);
   const clearCart = useShopStore((state) => state.clearCart);
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
@@ -340,7 +340,7 @@ export function CheckoutView() {
                 productTitle: line.product.title,
                 variantLabel: line.variant.label,
                 quantity: line.item.quantity,
-                unitPrice: line.variant.price,
+                unitPrice: line.unitPrice,
                 lineTotal: line.linePrice,
                 image: line.product.images[0]
               }))
@@ -394,7 +394,7 @@ export function CheckoutView() {
           <span>Subtotal</span>
           <span>{formatCurrency(pricing.subtotal)}</span>
         </div>
-        {pricing.discountCode && (
+        {pricing.discountCode && pricing.discountAmount > 0 && (
           <div className="flex items-center justify-between text-pine">
             <span>{pricing.discountCode}</span>
             <span>-{formatCurrency(pricing.discountAmount)}</span>
@@ -537,6 +537,7 @@ export function CheckoutView() {
                 const isSingle = isEligibleSinglePack(line.product);
                 const originalLinePrice = line.product.compareAtPrice * line.item.quantity;
                 const hasLineDiscount = originalLinePrice > line.linePrice;
+                const isCouponItem = Boolean(line.item.sourceCouponCode);
                 return (
                   <div key={`${line.item.productId}-${line.item.variantId}`} className="flex items-center gap-3 rounded-xl border border-stone p-3">
                     <div className="relative h-14 w-14 overflow-hidden rounded-lg bg-sand">
@@ -545,38 +546,44 @@ export function CheckoutView() {
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-1 text-sm font-semibold">{line.product.title}</p>
                       <p className="text-xs text-gray-500">{line.variant.label}</p>
-                      <div className="mt-2 flex w-fit items-center rounded-full border border-stone">
-                        <button
-                          type="button"
-                          onClick={() => handleQtyChange(line.item.productId, line.item.variantId, line.item.quantity, Math.max(0, line.item.quantity - 1), isSingle)}
-                          className="focus-ring px-2 py-1"
-                          aria-label="Decrease quantity"
-                        >
-                          <Minus size={13} />
-                        </button>
-                        <span className="px-2 text-xs">{line.item.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleQtyChange(line.item.productId, line.item.variantId, line.item.quantity, line.item.quantity + 1, isSingle)}
-                          className="focus-ring px-2 py-1"
-                          aria-label="Increase quantity"
-                        >
-                          <Plus size={13} />
-                        </button>
-                      </div>
+                      {isCouponItem ? (
+                        <p className="mt-2 text-[11px] font-medium text-pine">Free with {line.item.sourceCouponCode}</p>
+                      ) : (
+                        <div className="mt-2 flex w-fit items-center rounded-full border border-stone">
+                          <button
+                            type="button"
+                            onClick={() => handleQtyChange(line.item.productId, line.item.variantId, line.item.quantity, Math.max(0, line.item.quantity - 1), isSingle)}
+                            className="focus-ring px-2 py-1"
+                            aria-label="Decrease quantity"
+                          >
+                            <Minus size={13} />
+                          </button>
+                          <span className="px-2 text-xs">{line.item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleQtyChange(line.item.productId, line.item.variantId, line.item.quantity, line.item.quantity + 1, isSingle)}
+                            className="focus-ring px-2 py-1"
+                            aria-label="Increase quantity"
+                          >
+                            <Plus size={13} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="text-right">
                       {hasLineDiscount && (
                         <p className="text-xs text-gray-400 line-through">{formatCurrency(originalLinePrice)}</p>
                       )}
-                      <p className="text-sm font-semibold text-pine">{formatCurrency(line.linePrice)}</p>
-                      <button
-                        type="button"
-                        onClick={() => handleRemove(line.item.productId, line.item.variantId, line.item.quantity, isSingle)}
-                        className="focus-ring mt-1 inline-flex items-center gap-1 text-xs text-gray-500"
-                      >
-                        <Trash2 size={12} /> Remove
-                      </button>
+                      <p className="text-sm font-semibold text-pine">{isCouponItem ? "FREE" : formatCurrency(line.linePrice)}</p>
+                      {!isCouponItem && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemove(line.item.productId, line.item.variantId, line.item.quantity, isSingle)}
+                          className="focus-ring mt-1 inline-flex items-center gap-1 text-xs text-gray-500"
+                        >
+                          <Trash2 size={12} /> Remove
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -685,7 +692,7 @@ export function CheckoutView() {
               </button>
             </div>
             <div className="mt-3 max-h-[60vh] space-y-2 overflow-y-auto pr-1">
-              {COUPON_OFFERS.filter((coupon) => !["NAVA001", "YUVA200", "YUVA400"].includes(coupon.code)).map((coupon) => (
+              {COUPON_OFFERS.filter((coupon) => !["NAVA001", "YUVA200", "YUVA400", "YUVA03"].includes(coupon.code)).map((coupon) => (
                 <button
                   key={coupon.code}
                   type="button"

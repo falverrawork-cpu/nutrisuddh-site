@@ -1,20 +1,46 @@
+import Image from "@/components/common/app-image";
 import { Reveal } from "@/components/common/reveal";
 
 const ideas = [
   {
-    icon: "🥗",
-    title: "Masala Chaat Bowl",
-    copy: "Toss makhana with chopped onion, tomato, coriander, lemon, and a pinch of chaat masala."
+    image: "/DIY/Chikki.png",
+    title: "Makhana Chikki",
+    copy: "Golden jaggery meets crunchy roasted makhana — a sweet, nutty indulgence you can’t stop at one."
   },
   {
-    icon: "🥣",
-    title: "Yogurt Crunch Topper",
-    copy: "Add roasted makhana over chilled curd with mint and roasted cumin for a quick savoury bowl."
+    image: "/DIY/energyBalls.png",
+    title: "Makhana Energy Balls",
+    copy: "Bite-sized power packed with makhana, nuts, and natural sweetness for clean energy anytime."
   },
   {
-    icon: "🥜",
-    title: "Tea-Time Trail Mix",
-    copy: "Mix makhana with roasted nuts, curry leaves, and mild spices for a light evening snack."
+    image: "/DIY/chocolateIcecream.png",
+    title: "Chocolate Coated Makhana Ice Cream",
+    copy: "Creamy ice cream layered with crispy chocolate-coated makhana — indulgence with a delightful crunch."
+  },
+  {
+    image: "/DIY/Bhel.png",
+    title: "Makhana Bhel",
+    copy: "Light, crunchy makhana tossed with tangy spices and chutneys for a street-style flavor explosion."
+  },
+  {
+    image: "/DIY/proteinPowder.png",
+    title: "Makhana Protein Powder",
+    copy: "Pure makhana goodness finely crafted into a clean, plant-powered protein boost."
+  },
+  {
+    image: "/DIY/Keer.png",
+    title: "Makhana Kheer",
+    copy: "Silky slow-cooked milk, tender makhana, and aromatic cardamom — tradition in every spoon."
+  },
+  {
+    image: "/DIY/trialMix.png",
+    title: "Makhana Trail Mix",
+    copy: "A wholesome crunch of roasted makhana, nuts, and dried fruits for the perfect anytime snack."
+  },
+  {
+    image: "/DIY/makhanaDip.png",
+    title: "Makhana with Dip",
+    copy: "Crispy roasted makhana paired with a creamy dip for the ultimate crunchy-creamy experience."
   }
 ];
 
@@ -30,12 +56,24 @@ export function DIYDelights() {
             flavour.
           </p>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {ideas.map((idea) => (
-              <div key={idea.title} className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-stone/80 bg-sand/40 p-5 text-center">
-                <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl shadow-sm">
-                  {idea.icon}
-                </span>
+              <div key={idea.title} className="flex min-h-[220px] flex-col rounded-2xl border border-stone/80 bg-sand/40 p-5 text-center">
+                <div className="relative mx-auto h-24 w-full max-w-[150px] overflow-hidden rounded-2xl">
+                  {idea.image ? (
+                    <Image
+                      src={idea.image}
+                      alt={idea.title}
+                      fill
+                      className="object-contain p-2"
+                      sizes="150px"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center px-4 text-sm font-medium text-gray-500">
+                      Image coming soon
+                    </div>
+                  )}
+                </div>
                 <p className="mt-3 text-sm font-semibold text-ink">{idea.title}</p>
                 <p className="mt-2 text-sm leading-6 text-gray-700">{idea.copy}</p>
               </div>

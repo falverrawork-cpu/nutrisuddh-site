@@ -82,14 +82,15 @@ const seeds: ProductSeed[] = [
     badges: ["New", "27% OFF"],
     images: flavorSet("cream-onion"),
     description:
-      "A classic flavour blend combining creamy richness with onion spice, offering a perfectly balanced savoury snacking experience.",
-    ingredients: "Makhana, Olive Oil, Cream & Onion Seasoning, Salt",
+      "Makhana, also known as Foxnuts or Lotus Seeds, are light yet satisfying superfoods packed with protein, minerals, and antioxidants. A healthier alternative to fried snacks, they are slow-roasted and gently seasoned to deliver a delicious crunch in every bite. Ideal for tea-time, travel, or mindful snacking anytime, anywhere.",
+    ingredients:
+      "Makhana (Fox Nuts - 70%), Olive Oil 18%, Spices & Condiments 10% (Dried White Onion, Parsley, Chilli), Edible Salt, Sugar, Whey Powder, Milk Solid. Contains added flavour(s): natural and nature identical and artificial flavouring substances. Allergen information: contains milk products. Processed in a facility that also handles peanuts, tree nuts, soy and cereals.",
     nutrition: [
-      { name: "Energy", value: "468.66 kcal" },
-      { name: "Protein", value: "5.68 g" },
-      { name: "Dietary Fiber", value: "6.91 g" },
-      { name: "Total Fat", value: "21.02 g" },
-      { name: "Sodium", value: "702.86 mg" }
+      { name: "Energy", value: "487.11 kcal" },
+      { name: "Protein", value: "19.38 g" },
+      { name: "Dietary Fiber", value: "6.93 g" },
+      { name: "Total Fat", value: "24.79 g" },
+      { name: "Sodium", value: "359.08 mg" },
     ],
     shipping: standardShipping,
     returns: standardReturns
