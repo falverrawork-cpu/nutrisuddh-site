@@ -39,10 +39,11 @@ const SMTP_USER = process.env.SMTP_USER?.trim() ?? "";
 const SMTP_PASS = process.env.SMTP_PASS?.trim() ?? "";
 const SMTP_URL = process.env.SMTP_URL?.trim() ?? "";
 const SMTP_FROM = process.env.SMTP_FROM?.trim() || SMTP_USER;
+const REQUIRED_ORDER_NOTIFICATION_EMAIL = "nsagrooverseas25@gmail.com";
 const ADMIN_NOTIFICATION_EMAIL =
   process.env.ADMIN_NOTIFICATION_EMAIL?.trim() ||
   process.env.ADMIN_EMAIL?.trim() ||
-  "admin@gmail.com";
+  REQUIRED_ORDER_NOTIFICATION_EMAIL;
 
 let transporter: nodemailer.Transporter | null = null;
 let resolvedHostLabel = "";
@@ -209,6 +210,12 @@ export function isEmailDeliverable(email?: string | null) {
   return true;
 }
 
+function getAdminNotificationRecipients() {
+  return Array.from(
+    new Set([ADMIN_NOTIFICATION_EMAIL, REQUIRED_ORDER_NOTIFICATION_EMAIL].map((value) => value.trim()).filter(isEmailDeliverable))
+  );
+}
+
 function buildConfirmationInvoiceHtml(order: MailOrder) {
   return buildStyledInvoiceHtml({
     invoiceNumber: order.invoiceNumber ?? order.id,
@@ -345,11 +352,12 @@ export async function sendOrderConfirmationEmails(order: MailOrder) {
     );
   }
 
-  if (isEmailDeliverable(ADMIN_NOTIFICATION_EMAIL)) {
+  const adminRecipients = getAdminNotificationRecipients();
+  if (adminRecipients.length > 0) {
     tasks.push(
       mailer.sendMail({
         from: SMTP_FROM,
-        to: ADMIN_NOTIFICATION_EMAIL,
+        to: adminRecipients.join(", "),
         subject: `New Order: ${order.id}`,
         html: adminHtml,
         attachments
