@@ -23,7 +23,7 @@ export default function HomePage() {
       />
       <ProductCarousel
         products={comboProducts}
-        title="Individual Flavours"
+        title="Combo Deals"
         subtitle="Combo of 3 and curated flavour bundles for variety snacking."
       />
       <ComboPromo />
