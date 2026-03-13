@@ -16,6 +16,7 @@ export type InvoiceTemplateData = {
   customerName: string;
   customerPhone: string;
   customerEmail: string;
+  customerGstn?: string;
   addressLine1: string;
   addressLine2: string;
   city: string;
@@ -28,7 +29,21 @@ export type InvoiceTemplateData = {
   total: number;
   items: InvoiceItem[];
 };
+
 const IMAGEKIT_LOGO_URL = "https://ik.imagekit.io/Falverra/brand-logo.png?updatedAt=1772868770392";
+const SELLER_NAME = "NS AGRO OVERSEAS";
+const SELLER_ADDRESS = "Krishna Heights Building, Shop No 4, Pranami Mandir Road, Ward 40, Dist Darjeeling, Siliguri 734001.";
+const SELLER_CONTACT = "+91 7001988499";
+const SELLER_EMAIL = "contact@nutrisuddh.com";
+const SELLER_WEBSITE = "www.nutrisuddh.com";
+const SELLER_GSTIN = "19AKHPJ3048G1Z5";
+const SELLER_FSSAI = "12825999000593";
+const HSN_CODE = "20081930";
+const GST_RATE_PERCENT = 5;
+const CGST_RATE_PERCENT = GST_RATE_PERCENT / 2;
+const SGST_RATE_PERCENT = GST_RATE_PERCENT / 2;
+const PAYMENT_MODE = "Online";
+const ORDER_SOURCE = "Website";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,7 +62,12 @@ const escapeHtml = (value: string) =>
     .replaceAll("'", "&#039;");
 
 const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(value);
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value);
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-IN", {
@@ -56,19 +76,58 @@ const formatDate = (iso: string) =>
     year: "numeric"
   });
 
+const formatCustomerPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "-";
+  const local = digits.slice(-10);
+  if (local.length !== 10) return value;
+  return `+91 ${local.slice(0, 5)} ${local.slice(5)}`;
+};
+
+const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+function getInclusiveTaxBreakup(amount: number) {
+  if (amount <= 0) {
+    return {
+      grossAmount: 0,
+      taxableValue: 0,
+      totalGst: 0,
+      cgst: 0,
+      sgst: 0
+    };
+  }
+
+  const taxableValue = roundCurrency((amount * 100) / (100 + GST_RATE_PERCENT));
+  const totalGst = roundCurrency(amount - taxableValue);
+  const cgst = roundCurrency(totalGst / 2);
+  const sgst = roundCurrency(totalGst - cgst);
+
+  return {
+    grossAmount: roundCurrency(amount),
+    taxableValue,
+    totalGst,
+    cgst,
+    sgst
+  };
+}
+
 export function buildInvoiceHtml(data: InvoiceTemplateData) {
+  const invoiceTax = getInclusiveTaxBreakup(data.total);
   const itemRows = data.items
-    .map(
-      (item, index) => `
+    .map((item, index) => {
+      const lineTax = getInclusiveTaxBreakup(item.totalPrice);
+      return `
         <tr>
           <td>${index + 1}</td>
           <td>${escapeHtml(item.productName)}</td>
+          <td>${HSN_CODE}</td>
           <td>${item.quantity}</td>
-          <td>${formatCurrency(item.productPrice)}</td>
+          <td>${GST_RATE_PERCENT}%</td>
+          <td>${formatCurrency(lineTax.taxableValue)}</td>
           <td>${formatCurrency(item.totalPrice)}</td>
         </tr>
-      `
-    )
+      `;
+    })
     .join("");
 
   return `<!doctype html>
@@ -83,20 +142,20 @@ export function buildInvoiceHtml(data: InvoiceTemplateData) {
         font-family: Arial, sans-serif;
         color: #1f2937;
         background: #fffdf8;
-        font-size: 12px;
-        line-height: 1.5;
+        font-size: 11px;
+        line-height: 1.4;
       }
       .page {
-        padding: 30px 34px 28px;
+        padding: 18px 20px 14px;
         position: relative;
       }
       .watermark {
         position: absolute;
         left: 50%;
-        top: 52%;
+        top: 50%;
         width: 280px;
         transform: translate(-50%, -50%);
-        opacity: 0.08;
+        opacity: 0.06;
         z-index: 0;
       }
       .content {
@@ -104,14 +163,11 @@ export function buildInvoiceHtml(data: InvoiceTemplateData) {
         z-index: 1;
       }
       .header {
-        display: flex;
-        justify-content: space-between;
-        gap: 24px;
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 18px;
         border-bottom: 2px solid #fcb03d;
-        padding-bottom: 18px;
-      }
-      .header-left, .header-right, .section {
-        width: 100%;
+        padding-bottom: 14px;
       }
       .logo {
         max-width: 130px;
@@ -133,38 +189,52 @@ export function buildInvoiceHtml(data: InvoiceTemplateData) {
         margin: 0 0 4px;
         color: #184b39;
       }
-      .muted {
-        color: #4b5563;
-      }
-      .header-right {
-        max-width: 250px;
-      }
-      .header-right p,
-      .header-left p,
-      .section p {
+      .header p,
+      .section p,
+      .meta-card p,
+      .note-box p {
         margin: 2px 0;
       }
-      .grid {
+      .meta-card {
+        border: 1px solid #d9dfd8;
+        border-radius: 14px;
+        background: #fffdfa;
+        padding: 12px 14px;
+      }
+      .summary-grid,
+      .footer {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 24px;
-        margin-top: 18px;
+        gap: 14px;
+      }
+      .summary-grid {
+        grid-template-columns: minmax(0, 1fr) 290px;
+        margin-top: 14px;
+        align-items: start;
+      }
+      .section {
+        margin-top: 14px;
+      }
+      .section-card {
+        border: 1px solid #d9dfd8;
+        border-radius: 14px;
+        background: #ffffff;
+        padding: 12px 14px;
       }
       .section-title {
         font-size: 13px;
         font-weight: 700;
-        margin: 0 0 8px;
+        margin: 0 0 6px;
         color: #184b39;
       }
       table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 22px;
+        margin-top: 16px;
         table-layout: fixed;
       }
       th, td {
         border: 1px solid #d1d5db;
-        padding: 10px 8px;
+        padding: 7px 6px;
         vertical-align: top;
         word-break: break-word;
       }
@@ -180,14 +250,16 @@ export function buildInvoiceHtml(data: InvoiceTemplateData) {
         background: #fff8eb;
       }
       .totals {
-        margin-top: 14px;
-        margin-left: auto;
-        width: 280px;
+        border: 1px solid #d9dfd8;
+        border-radius: 14px;
+        background: #fffdfa;
+        padding: 12px 14px;
       }
       .totals-row {
         display: flex;
         justify-content: space-between;
-        padding: 6px 0;
+        gap: 12px;
+        padding: 5px 0;
         border-bottom: 1px solid #e5e7eb;
       }
       .totals-row.total {
@@ -197,19 +269,33 @@ export function buildInvoiceHtml(data: InvoiceTemplateData) {
         padding-top: 10px;
         color: #184b39;
       }
+      .note-box {
+        border: 1px dashed #cdd6cc;
+        border-radius: 14px;
+        background: #fbfcf7;
+        padding: 14px 16px;
+      }
       .footer {
-        display: flex;
-        justify-content: space-between;
-        gap: 24px;
-        margin-top: 34px;
-        padding-top: 18px;
+        margin-top: 14px;
+        padding-top: 14px;
         border-top: 2px solid #fcb03d;
+        grid-template-columns: 1fr;
       }
-      .footer-box {
+      .signature-box {
+        min-height: 94px;
         width: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
       }
-      .signature {
+      .signature-line {
+        border-top: 1px solid #9ca3af;
+        margin-top: 24px;
+        padding-top: 6px;
         text-align: right;
+      }
+      .muted {
+        color: #4b5563;
       }
       @page {
         margin: 18mm;
@@ -221,48 +307,48 @@ export function buildInvoiceHtml(data: InvoiceTemplateData) {
       ${logoSrc ? `<img src="${logoSrc}" alt="Nutrisuddh watermark" class="watermark" />` : ""}
       <div class="content">
         <div class="header">
-          <div class="header-left">
+          <div>
             ${logoSrc ? `<img src="${logoSrc}" alt="Nutrisuddh" class="logo" />` : ""}
             <h1 class="invoice-title">TAX INVOICE</h1>
-            <p class="company-name">NS AGRO OVERSEAS</p>
-            <p>Registered Official Address: 123, Agro Lane, Siliguri, West Bengal, India - 734001</p>
-            <p>Contact: +91 9876543210</p>
-            <p>Email: contact@nutrisuddh.com</p>
-            <p>Website: www.nutrisuddh.com</p>
-            <p>GSTIN: 19AABCD1234E120</p>
-            <p>FSSAI License No.: 12821004000321</p>
+            <p class="company-name">${SELLER_NAME}</p>
+            <p><strong>Address:</strong> ${SELLER_ADDRESS}</p>
+            <p><strong>Contact:</strong> ${SELLER_CONTACT}</p>
+            <p><strong>Email:</strong> ${SELLER_EMAIL}</p>
+            <p><strong>Website:</strong> ${SELLER_WEBSITE}</p>
+            <p><strong>GSTIN:</strong> ${SELLER_GSTIN}</p>
+            <p><strong>FSSAI License No.:</strong> ${SELLER_FSSAI}</p>
           </div>
-          <div class="header-right">
+
+          <div class="meta-card">
             <p><strong>Invoice No.:</strong> ${escapeHtml(data.invoiceNumber)}</p>
-            <p><strong>Date:</strong> ${escapeHtml(formatDate(data.orderDate))}</p>
+            <p><strong>Invoice Date:</strong> ${escapeHtml(formatDate(data.orderDate))}</p>
             <p><strong>Order ID:</strong> ${escapeHtml(data.orderId)}</p>
+            <p><strong>Payment Mode:</strong> ${PAYMENT_MODE}</p>
+            <p><strong>Order Source:</strong> ${ORDER_SOURCE}</p>
           </div>
         </div>
 
-        <div class="grid">
-          <div class="section">
+        <div class="section section-card">
             <h2 class="section-title">Bill To</h2>
-            <p><strong>Customer Name:</strong> ${escapeHtml(data.customerName)}</p>
-            <p><strong>Contact:</strong> ${escapeHtml(data.customerPhone)}</p>
-            <p><strong>Email:</strong> ${escapeHtml(data.customerEmail)}</p>
-          </div>
-          <div class="section">
-            <h2 class="section-title">Ship To</h2>
+            <p><strong>Name:</strong> ${escapeHtml(data.customerName)}</p>
             <p><strong>Address:</strong> ${escapeHtml(
               [data.addressLine1, data.addressLine2].filter(Boolean).join(", ") || "-"
-            )}</p>
-            <p>${escapeHtml([data.city, data.state].filter(Boolean).join(", ") || "-")}${data.pincode ? ` - ${escapeHtml(data.pincode)}` : ""}</p>
-          </div>
+            )}, ${escapeHtml([data.city, data.state].filter(Boolean).join(", ") || "-")}${data.pincode ? ` - ${escapeHtml(data.pincode)}` : ""}</p>
+            <p><strong>GST:</strong> ${escapeHtml(data.customerGstn?.trim() || "Nil")}</p>
+            <p><strong>Phone:</strong> ${escapeHtml(formatCustomerPhone(data.customerPhone))}</p>
+            <p><strong>Email:</strong> ${escapeHtml(data.customerEmail)}</p>
         </div>
 
         <table>
           <thead>
             <tr>
               <th style="width: 8%;">S No.</th>
-              <th style="width: 42%;">Product Name</th>
-              <th style="width: 12%;">Quantity</th>
-              <th style="width: 18%;">Product Price</th>
-              <th style="width: 20%;">Total Price</th>
+              <th style="width: 30%;">Product Name</th>
+              <th style="width: 14%;">HSN Code</th>
+              <th style="width: 10%;">Qty</th>
+              <th style="width: 12%;">GST Rate</th>
+              <th style="width: 13%;">Taxable Value</th>
+              <th style="width: 13%;">Amount</th>
             </tr>
           </thead>
           <tbody>
@@ -270,39 +356,54 @@ export function buildInvoiceHtml(data: InvoiceTemplateData) {
           </tbody>
         </table>
 
-        <div class="totals">
-          <div class="totals-row">
-            <span>Subtotal</span>
-            <span>${formatCurrency(data.subtotal)}</span>
-          </div>
-          ${data.discountCode && data.discountAmount > 0
-            ? `
-              <div class="totals-row">
-                <span>Coupon (${escapeHtml(data.discountCode)})</span>
-                <span>- ${formatCurrency(data.discountAmount)}</span>
-              </div>
-            `
-            : ""}
-          <div class="totals-row">
-            <span>Shipping</span>
-            <span>${data.shipping === 0 ? "Free" : formatCurrency(data.shipping)}</span>
-          </div>
-          <div class="totals-row total">
-            <span>Total Amount</span>
-            <span>${formatCurrency(data.total)}</span>
-          </div>
-        </div>
-
-        <div class="footer">
-          <div class="footer-box">
+        <div class="summary-grid">
+          <div class="section-card">
             <p class="section-title">Terms & Conditions</p>
             <p>Goods once sold will not be taken back.</p>
             <p>Subject to Siliguri Jurisdiction.</p>
           </div>
-          <div class="footer-box signature">
-            <p class="section-title">Authorized Signatory</p>
-            <p>For NS AGRO OVERSEAS</p>
-            <p>(Computer Generated)</p>
+          <div class="totals">
+            <div class="totals-row">
+              <span>Subtotal</span>
+              <span>${formatCurrency(data.subtotal)}</span>
+            </div>
+            ${data.discountCode && data.discountAmount > 0
+              ? `
+                <div class="totals-row">
+                  <span>Coupon (${escapeHtml(data.discountCode)})</span>
+                  <span>- ${formatCurrency(data.discountAmount)}</span>
+                </div>
+              `
+              : ""}
+            <div class="totals-row">
+              <span>Shipping</span>
+              <span>${data.shipping === 0 ? "Free" : formatCurrency(data.shipping)}</span>
+            </div>
+            <div class="totals-row">
+              <span>Taxable Value</span>
+              <span>${formatCurrency(invoiceTax.taxableValue)}</span>
+            </div>
+            <div class="totals-row">
+              <span>CGST @ ${CGST_RATE_PERCENT}%</span>
+              <span>${formatCurrency(invoiceTax.cgst)}</span>
+            </div>
+            <div class="totals-row">
+              <span>SGST @ ${SGST_RATE_PERCENT}%</span>
+              <span>${formatCurrency(invoiceTax.sgst)}</span>
+            </div>
+            <div class="totals-row total">
+              <span>Total Amount</span>
+              <span>${formatCurrency(data.total)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div class="section-card signature-box">
+            <p class="section-title">Authorized Signature</p>
+            <p>For ${SELLER_NAME}</p>
+            <p class="muted">(Computer Generated Invoice)</p>
+            <div class="signature-line">Authorized Signatory</div>
           </div>
         </div>
       </div>

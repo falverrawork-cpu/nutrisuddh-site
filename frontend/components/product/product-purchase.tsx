@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Minus, Plus, Star } from "lucide-react";
 import { Product } from "@/lib/types";
+import { GIFT_PACK_CHARGE_BUNDLE_3, GIFT_PACK_CHARGE_BUNDLE_6, isComboBundle3Product, isComboBundle6Product } from "@/lib/pricing";
 import { formatCurrency } from "@/lib/utils";
 import { useShopStore } from "@/stores/shop-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -12,7 +13,9 @@ import { useAuthStore } from "@/stores/auth-store";
 export function ProductPurchase({ product, images }: { product: Product; images?: string[] }) {
   const [variantId, setVariantId] = useState(product.variants[0].id);
   const [quantity, setQuantity] = useState(1);
+  const [giftPack, setGiftPack] = useState(false);
   const addToCart = useShopStore((state) => state.addToCart);
+  const setCartGiftPack = useShopStore((state) => state.setCartGiftPack);
   const openCart = useUIStore((state) => state.openCart);
   const addToast = useUIStore((state) => state.addToast);
   const openAuthModal = useUIStore((state) => state.openAuthModal);
@@ -20,6 +23,8 @@ export function ProductPurchase({ product, images }: { product: Product; images?
 
   const variant = product.variants.find((value) => value.id === variantId) ?? product.variants[0];
   const galleryImages = images && images.length > 0 ? images : product.images;
+  const isGiftPackEligible = isComboBundle3Product(product) || isComboBundle6Product(product);
+  const giftPackCharge = isComboBundle3Product(product) ? GIFT_PACK_CHARGE_BUNDLE_3 : GIFT_PACK_CHARGE_BUNDLE_6;
 
   return (
     <div className="card-surface w-full px-4 pb-4 pt-3 sm:px-6 sm:pb-6 sm:pt-4">
@@ -47,6 +52,23 @@ export function ProductPurchase({ product, images }: { product: Product; images?
             <p className="text-xl font-semibold sm:text-2xl">{formatCurrency(variant.price)}</p>
             <p className="text-sm text-gray-400 line-through">{formatCurrency(product.compareAtPrice)}</p>
           </div>
+
+          {isGiftPackEligible && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setGiftPack((value) => !value)}
+                aria-pressed={giftPack}
+                className={`focus-ring inline-flex items-center rounded-full border px-4 py-2 text-sm font-medium transition ${
+                  giftPack
+                    ? "border-pine bg-pine/10 text-pine"
+                    : "border-stone bg-white text-gray-700"
+                }`}
+              >
+                {giftPack ? "Gift Pack Added" : "Gift for someone else?"} (+{formatCurrency(giftPackCharge)})
+              </button>
+            </div>
+          )}
 
           <div className="mt-5">
             <p className="mb-2 text-sm font-semibold">Select pack size</p>
@@ -83,6 +105,9 @@ export function ProductPurchase({ product, images }: { product: Product; images?
                   return;
                 }
                 addToCart(product.id, variantId, quantity);
+                if (giftPack) {
+                  setCartGiftPack(product.id, variantId, true);
+                }
                 addToast(`${product.title} added to cart`);
                 openCart();
               }}

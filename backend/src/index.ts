@@ -10,6 +10,7 @@ import { AuthRequest, requireAdmin, requireAuth, signAuthToken } from "./lib/aut
 import {
   getLastEmailError,
   sendAdminTestEmail,
+  sendInvoiceTestEmail,
   sendEmailLoginCodeEmail,
   sendFormSubmissionNotificationEmail,
   sendFormReplyEmail,
@@ -52,6 +53,7 @@ type OrderInput = {
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
+  customerGstn?: string;
   addressLine1?: string;
   addressLine2?: string;
   shippingCity?: string;
@@ -161,6 +163,7 @@ function serializeOrderRows(orderRows: any[], itemRows: any[]) {
     customerName: order.customer_name ?? undefined,
     customerEmail: order.customer_email ?? undefined,
     customerPhone: order.customer_phone ?? undefined,
+    customerGstn: order.customer_gstn ?? undefined,
     addressLine1: order.address_line1 ?? undefined,
     addressLine2: order.address_line2 ?? undefined,
     shippingCity: order.shipping_city ?? undefined,
@@ -198,6 +201,7 @@ function toMailOrder(order: any, items: OrderInputItem[] | any[]): MailOrder {
     customerName: order.customer_name ?? order.customerName ?? null,
     customerEmail: order.customer_email ?? order.customerEmail ?? null,
     customerPhone: order.customer_phone ?? order.customerPhone ?? null,
+    customerGstn: order.customer_gstn ?? order.customerGstn ?? null,
     addressLine1: order.address_line1 ?? order.addressLine1 ?? null,
     addressLine2: order.address_line2 ?? order.addressLine2 ?? null,
     shippingCity: order.shipping_city ?? order.shippingCity ?? null,
@@ -837,8 +841,8 @@ app.post("/api/orders", requireAuth, async (req: AuthRequest, res) => {
       `INSERT INTO orders (
         id, user_id, created_at, expected_delivery_date, status, payment_id,
         subtotal, discount_code, discount_amount, shipping, total,
-        customer_name, customer_email, customer_phone, address_line1, address_line2, shipping_city, shipping_state, pin_code
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        customer_name, customer_email, customer_phone, customer_gstn, address_line1, address_line2, shipping_city, shipping_state, pin_code
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
     const insertItem = db.prepare(
@@ -863,6 +867,7 @@ app.post("/api/orders", requireAuth, async (req: AuthRequest, res) => {
         body.customerName ?? null,
         body.customerEmail ?? null,
         body.customerPhone ?? null,
+        body.customerGstn?.trim().toUpperCase() ?? null,
         body.addressLine1 ?? null,
         body.addressLine2 ?? null,
         body.shippingCity ?? null,
@@ -901,6 +906,7 @@ app.post("/api/orders", requireAuth, async (req: AuthRequest, res) => {
         customerName: body.customerName,
         customerEmail: body.customerEmail,
         customerPhone: body.customerPhone,
+        customerGstn: body.customerGstn,
         addressLine1: body.addressLine1,
         addressLine2: body.addressLine2,
         shippingCity: body.shippingCity,
@@ -1300,6 +1306,50 @@ app.delete("/api/admin/orders/:orderId", requireAuth, requireAdmin, (req, res) =
   } catch (error) {
     console.error("Delete order failed", error);
     return res.status(500).json({ error: "Unable to delete order." });
+  }
+});
+
+app.post("/api/admin/orders/:orderId/test-invoice-email", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const orderId = String(req.params.orderId);
+    const orderRow = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId) as any | undefined;
+
+    if (!orderRow) {
+      return res.status(404).json({ error: "Order not found." });
+    }
+
+    const itemRows = db
+      .prepare("SELECT * FROM order_items WHERE order_id = ? ORDER BY id ASC")
+      .all(orderId) as any[];
+
+    const mailOrder = toMailOrder(orderRow, itemRows);
+
+    let invoiceRecord:
+      | {
+          invoiceNumber: string;
+          invoicePath: string;
+          invoiceGeneratedAt: string;
+        }
+      | null = null;
+
+    if (INVOICE_ELIGIBLE_STATUSES.has(orderRow.status)) {
+      invoiceRecord = await ensureOrderInvoice(orderId);
+    }
+
+    const sent = await sendInvoiceTestEmail({
+      ...mailOrder,
+      invoiceNumber: invoiceRecord?.invoiceNumber ?? orderRow.invoice_number ?? null,
+      invoicePath: invoiceRecord?.invoicePath ?? orderRow.invoice_path ?? null
+    });
+
+    if (!sent) {
+      return res.status(500).json({ error: getLastEmailError() || "Unable to send invoice test email." });
+    }
+
+    return res.json({ ok: true, orderId });
+  } catch (error) {
+    console.error("Invoice test email failed", error);
+    return res.status(500).json({ error: error instanceof Error ? error.message : "Unable to send invoice test email." });
   }
 });
 

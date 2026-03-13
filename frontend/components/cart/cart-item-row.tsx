@@ -4,16 +4,20 @@ import Image from "@/components/common/app-image";
 import Link from "@/components/common/app-link";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { DetailedCartItem } from "@/lib/cart";
+import { GIFT_PACK_CHARGE_BUNDLE_3, GIFT_PACK_CHARGE_BUNDLE_6, isComboBundle3Product, isComboBundle6Product } from "@/lib/pricing";
 import { formatCurrency } from "@/lib/utils";
 
 type Props = {
   line: DetailedCartItem;
   onQuantityChange: (quantity: number) => void;
   onRemove: () => void;
+  onGiftPackChange?: (giftPack: boolean) => void;
 };
 
-export function CartItemRow({ line, onQuantityChange, onRemove }: Props) {
+export function CartItemRow({ line, onQuantityChange, onRemove, onGiftPackChange }: Props) {
   const isCouponItem = Boolean(line.item.sourceCouponCode);
+  const isGiftPackEligible = isComboBundle3Product(line.product) || isComboBundle6Product(line.product);
+  const giftPackCharge = isComboBundle3Product(line.product) ? GIFT_PACK_CHARGE_BUNDLE_3 : GIFT_PACK_CHARGE_BUNDLE_6;
 
   return (
     <div className="flex gap-3 border-b border-stone pb-4">
@@ -33,6 +37,20 @@ export function CartItemRow({ line, onQuantityChange, onRemove }: Props) {
         <p className="text-xs text-gray-500">{line.variant.label}</p>
         {isCouponItem && (
           <p className="mt-1 text-[11px] font-medium text-pine">Free with {line.item.sourceCouponCode}</p>
+        )}
+        {!isCouponItem && isGiftPackEligible && onGiftPackChange && (
+          <button
+            type="button"
+            onClick={() => onGiftPackChange(!line.item.giftPack)}
+            aria-pressed={Boolean(line.item.giftPack)}
+            className={`focus-ring mt-2 inline-flex items-center rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
+              line.item.giftPack
+                ? "border-pine bg-pine/10 text-pine"
+                : "border-stone bg-white text-gray-600"
+            }`}
+          >
+            {line.item.giftPack ? "Gift Pack Added" : "Gift for someone else?"} (+{formatCurrency(giftPackCharge)})
+          </button>
         )}
         <div className="mt-2 flex items-center justify-between">
           {isCouponItem ? (

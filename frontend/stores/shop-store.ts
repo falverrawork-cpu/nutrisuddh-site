@@ -12,6 +12,7 @@ type ShopState = {
   addToCart: (productId: string, variantId: string, quantity?: number) => void;
   removeFromCart: (productId: string, variantId: string) => void;
   setCartQuantity: (productId: string, variantId: string, quantity: number) => void;
+  setCartGiftPack: (productId: string, variantId: string, giftPack: boolean) => void;
   setAppliedCouponCode: (code: DiscountCode | null) => void;
   clearCart: () => void;
   addOrder: (order: Order) => void;
@@ -74,6 +75,15 @@ export const useShopStore = create<ShopState>()(
         ),
       setCartQuantity: (productId, variantId, quantity) =>
         set((state) => syncCouponCart(updateCartItem(state.cart, productId, variantId, quantity), state.appliedCouponCode)),
+      setCartGiftPack: (productId, variantId, giftPack) =>
+        set((state) => ({
+          ...syncCouponCart(
+            state.cart.map((item) =>
+              item.productId === productId && item.variantId === variantId ? { ...item, giftPack } : item
+            ),
+            state.appliedCouponCode
+          )
+        })),
       setAppliedCouponCode: (code) =>
         set((state) => syncCouponCart(state.cart, code)),
       clearCart: () => set({ cart: [], appliedCouponCode: null }),

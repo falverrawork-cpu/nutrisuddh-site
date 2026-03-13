@@ -17,6 +17,7 @@ export function CartView() {
   const cart = useShopStore((state) => state.cart);
   const appliedCouponCode = useShopStore((state) => state.appliedCouponCode);
   const setCartQuantity = useShopStore((state) => state.setCartQuantity);
+  const setCartGiftPack = useShopStore((state) => state.setCartGiftPack);
   const removeFromCart = useShopStore((state) => state.removeFromCart);
   const addToast = useUIStore((state) => state.addToast);
 
@@ -74,6 +75,9 @@ export function CartView() {
                   removeFromCart(line.item.productId, line.item.variantId);
                   addToast(getCartNudge(nextEligibleQty).message, "info");
                 }}
+                onGiftPackChange={(giftPack) => {
+                  setCartGiftPack(line.item.productId, line.item.variantId, giftPack);
+                }}
               />
             ))}
           </div>
@@ -87,6 +91,12 @@ export function CartView() {
               <div className="flex justify-between text-pine">
                 <span>Discount</span>
                 <span>-{formatCurrency(pricing.discountAmount)}</span>
+              </div>
+            )}
+            {pricing.giftPackCharge > 0 && (
+              <div className="flex justify-between">
+                <span>Gift Pack Charge</span>
+                <span>{formatCurrency(pricing.giftPackCharge)}</span>
               </div>
             )}
             <div className="flex justify-between"><span>Shipping</span><span>{pricing.shipping === 0 ? "Free" : formatCurrency(pricing.shipping)}</span></div>

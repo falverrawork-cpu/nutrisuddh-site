@@ -22,6 +22,7 @@ export type MailOrder = {
   customerName?: string | null;
   customerEmail?: string | null;
   customerPhone?: string | null;
+  customerGstn?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
   shippingCity?: string | null;
@@ -224,6 +225,7 @@ function buildConfirmationInvoiceHtml(order: MailOrder) {
     customerName: order.customerName ?? "Customer",
     customerPhone: order.customerPhone ?? "-",
     customerEmail: order.customerEmail ?? "-",
+    customerGstn: order.customerGstn ?? "",
     addressLine1: order.addressLine1 ?? "-",
     addressLine2: order.addressLine2 ?? "",
     city: order.shippingCity ?? "",
@@ -235,7 +237,9 @@ function buildConfirmationInvoiceHtml(order: MailOrder) {
     shipping: order.shipping,
     total: order.total,
     items: order.items.map((item) => ({
-      productName: item.variantLabel ? `${item.productTitle} (${item.variantLabel})` : item.productTitle,
+      productName: item.variantLabel
+        ? `${item.productTitle} (70 gms) (${item.variantLabel})`
+        : `${item.productTitle} (70 gms)`,
       quantity: item.quantity,
       productPrice: item.quantity > 0 ? item.lineTotal / item.quantity : item.lineTotal,
       totalPrice: item.lineTotal
@@ -522,6 +526,51 @@ export async function sendAdminTestEmail() {
     const message = error instanceof Error ? error.message : "Unknown email error";
     lastEmailError = message;
     throw new Error(`Unable to send test email. ${message}`);
+  }
+}
+
+export async function sendInvoiceTestEmail(order: MailOrder) {
+  const mailer = await getTransporter();
+  if (!mailer) return false;
+
+  const invoiceHtml = buildConfirmationInvoiceHtml(order);
+  const attachments = order.invoicePath
+    ? [
+        {
+          filename: `${order.invoiceNumber || order.id}.pdf`,
+          path: order.invoicePath
+        }
+      ]
+    : [
+        {
+          filename: `invoice-${order.id}.html`,
+          content: invoiceHtml
+        }
+      ];
+
+  const adminRecipients = getAdminNotificationRecipients();
+  if (adminRecipients.length === 0) return false;
+
+  try {
+    await mailer.sendMail({
+      from: SMTP_FROM,
+      to: adminRecipients.join(", "),
+      subject: `Invoice Test: ${order.id}`,
+      html: `
+        <p>This is a test invoice email from the admin dashboard.</p>
+        <p><strong>Order ID:</strong> ${escapeHtml(order.id)}</p>
+        <p><strong>Customer:</strong> ${escapeHtml(order.customerName ?? "-")}</p>
+        <p><strong>Total:</strong> ${formatCurrency(order.total)}</p>
+        <p>The latest invoice is attached for review.</p>
+      `,
+      attachments
+    });
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown email error";
+    lastEmailError = message;
+    console.error("[email] Invoice test send failed", error);
+    return false;
   }
 }
 

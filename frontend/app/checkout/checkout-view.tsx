@@ -13,10 +13,14 @@ import { useUIStore } from "@/stores/ui-store";
 import { getDetailedCartItems } from "@/lib/cart";
 import {
   COUPON_OFFERS,
+  GIFT_PACK_CHARGE_BUNDLE_3,
+  GIFT_PACK_CHARGE_BUNDLE_6,
   getCartNudge,
   getCartPricing,
   getCouponIneligibilityReason,
   getEligibleCouponCodes,
+  isComboBundle3Product,
+  isComboBundle6Product,
   isEligibleSinglePack
 } from "@/lib/pricing";
 import { formatCurrency } from "@/lib/utils";
@@ -89,6 +93,7 @@ type DeliveryDetails = {
   name: string;
   email: string;
   phone: string;
+  customerGstn: string;
   addressLine1: string;
   addressLine2: string;
   city: string;
@@ -100,6 +105,7 @@ const INITIAL_DELIVERY: DeliveryDetails = {
   name: "",
   email: "",
   phone: "",
+  customerGstn: "",
   addressLine1: "",
   addressLine2: "",
   city: "",
@@ -107,6 +113,7 @@ const INITIAL_DELIVERY: DeliveryDetails = {
   pinCode: ""
 };
 
+const normalizeIndianPhoneInput = (value: string) => value.replace(/\D/g, "").slice(-10);
 
 export function CheckoutView() {
   const navigate = useNavigate();
@@ -122,6 +129,7 @@ export function CheckoutView() {
   const appliedCouponCode = useShopStore((state) => state.appliedCouponCode);
   const addToCart = useShopStore((state) => state.addToCart);
   const setCartQuantity = useShopStore((state) => state.setCartQuantity);
+  const setCartGiftPack = useShopStore((state) => state.setCartGiftPack);
   const removeFromCart = useShopStore((state) => state.removeFromCart);
   const setAppliedCouponCode = useShopStore((state) => state.setAppliedCouponCode);
   const clearCart = useShopStore((state) => state.clearCart);
@@ -179,7 +187,7 @@ export function CheckoutView() {
       ...current,
       name: current.name || user.name || "",
       email: current.email || user.email || "",
-      phone: current.phone || user.phone || ""
+      phone: current.phone || normalizeIndianPhoneInput(user.phone || "")
     }));
   }, [user]);
 
@@ -269,10 +277,15 @@ export function CheckoutView() {
     addToast(`${offer.code} applied successfully`);
   };
 
+  const normalizedCustomerGstn = delivery.customerGstn.trim().toUpperCase();
+
   const validateDeliveryDetails = () => {
     if (!delivery.name.trim()) return "Please enter your name.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(delivery.email.trim())) return "Please enter a valid email address.";
     if (!/^\d{10}$/.test(delivery.phone.replace(/\D/g, ""))) return "Please enter a valid 10-digit phone number.";
+    if (normalizedCustomerGstn && !/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/.test(normalizedCustomerGstn)) {
+      return "Please enter a valid 15-character GSTIN.";
+    }
     if (!delivery.addressLine1.trim()) return "Please enter House No./Flat Number.";
     if (!delivery.addressLine2.trim()) return "Please enter your complete address.";
     if (!delivery.city.trim()) return "Please enter your city.";
@@ -400,6 +413,7 @@ export function CheckoutView() {
               customerName: checkoutIdentity.name,
               customerEmail: checkoutIdentity.email,
               customerPhone: checkoutIdentity.phone || undefined,
+              customerGstn: normalizedCustomerGstn || undefined,
               addressLine1: delivery.addressLine1,
               addressLine2: delivery.addressLine2,
               shippingCity: delivery.city,
@@ -468,6 +482,12 @@ export function CheckoutView() {
           <div className="flex items-center justify-between text-pine">
             <span>{pricing.discountCode}</span>
             <span>-{formatCurrency(pricing.discountAmount)}</span>
+          </div>
+        )}
+        {pricing.giftPackCharge > 0 && (
+          <div className="flex items-center justify-between">
+            <span>Gift Pack Charge</span>
+            <span>{formatCurrency(pricing.giftPackCharge)}</span>
           </div>
         )}
         <div className="flex items-center justify-between">
@@ -539,7 +559,25 @@ export function CheckoutView() {
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <input value={delivery.name} onChange={(e) => setDelivery((d) => ({ ...d, name: e.target.value }))} placeholder="Name" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
               <input value={delivery.email} onChange={(e) => setDelivery((d) => ({ ...d, email: e.target.value }))} placeholder="Email" type="email" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
-              <input value={delivery.phone} onChange={(e) => setDelivery((d) => ({ ...d, phone: e.target.value }))} placeholder="Number" inputMode="numeric" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
+              <div className="flex overflow-hidden rounded-lg border border-stone">
+                <span className="flex items-center border-r border-stone bg-sand/70 px-3 text-sm font-medium text-gray-600">
+                  +91
+                </span>
+                <input
+                  value={delivery.phone}
+                  onChange={(e) => setDelivery((d) => ({ ...d, phone: normalizeIndianPhoneInput(e.target.value) }))}
+                  placeholder="Phone Number"
+                  inputMode="numeric"
+                  maxLength={10}
+                  className="focus-ring min-w-0 flex-1 border-0 px-3 py-2 text-sm"
+                />
+              </div>
+              <input
+                value={delivery.customerGstn}
+                onChange={(e) => setDelivery((d) => ({ ...d, customerGstn: e.target.value.toUpperCase() }))}
+                placeholder="Customer GSTIN (Optional for B2B)"
+                className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm"
+              />
               <input value={delivery.addressLine1} onChange={(e) => setDelivery((d) => ({ ...d, addressLine1: e.target.value }))} placeholder="House No./Flat Number" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
               <input value={delivery.addressLine2} onChange={(e) => setDelivery((d) => ({ ...d, addressLine2: e.target.value }))} placeholder="Enter Complete Address" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm sm:col-span-2" />
               <input value={delivery.city} onChange={(e) => setDelivery((d) => ({ ...d, city: e.target.value }))} placeholder="City" className="focus-ring rounded-lg border border-stone px-3 py-2 text-sm" />
@@ -630,6 +668,8 @@ export function CheckoutView() {
             <div className="mt-4 space-y-3">
               {lines.map((line) => {
                 const isSingle = isEligibleSinglePack(line.product);
+                const isGiftPackEligible = isComboBundle3Product(line.product) || isComboBundle6Product(line.product);
+                const giftPackCharge = isComboBundle3Product(line.product) ? GIFT_PACK_CHARGE_BUNDLE_3 : GIFT_PACK_CHARGE_BUNDLE_6;
                 const originalLinePrice = line.product.compareAtPrice * line.item.quantity;
                 const hasLineDiscount = originalLinePrice > line.linePrice;
                 const isCouponItem = Boolean(line.item.sourceCouponCode);
@@ -641,6 +681,20 @@ export function CheckoutView() {
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-1 text-sm font-semibold">{line.product.title}</p>
                       <p className="text-xs text-gray-500">{line.variant.label}</p>
+                      {!isCouponItem && isGiftPackEligible && (
+                        <button
+                          type="button"
+                          onClick={() => setCartGiftPack(line.item.productId, line.item.variantId, !line.item.giftPack)}
+                          aria-pressed={Boolean(line.item.giftPack)}
+                          className={`focus-ring mt-2 inline-flex items-center rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
+                            line.item.giftPack
+                              ? "border-pine bg-pine/10 text-pine"
+                              : "border-stone bg-white text-gray-600"
+                          }`}
+                        >
+                          {line.item.giftPack ? "Gift Pack Added" : "Gift for someone else?"} (+{formatCurrency(giftPackCharge)})
+                        </button>
+                      )}
                       {isCouponItem ? (
                         <p className="mt-2 text-[11px] font-medium text-pine">Free with {line.item.sourceCouponCode}</p>
                       ) : (

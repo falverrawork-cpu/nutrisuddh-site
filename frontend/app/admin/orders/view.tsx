@@ -48,11 +48,56 @@ const formatDate = (iso: string) =>
     year: "numeric"
   });
 
+const formatCustomerPhone = (value?: string) => {
+  const digits = (value ?? "").replace(/\D/g, "");
+  if (!digits) return "-";
+  const local = digits.slice(-10);
+  if (local.length !== 10) return value ?? "-";
+  return `+91 ${local.slice(0, 5)} ${local.slice(5)}`;
+};
+
+const SELLER_NAME = "NS AGRO OVERSEAS";
+const SELLER_ADDRESS = "Krishna Heights Building, Shop No 4, Pranami Mandir Road, Ward 40, Dist Darjeeling, Siliguri 734001.";
+const SELLER_CONTACT = "+91 7001988499";
+const SELLER_EMAIL = "contact@nutrisuddh.com";
+const SELLER_GSTIN = "19AKHPJ3048G1Z5";
+const SELLER_FSSAI = "12825999000593";
+const HSN_CODE = "20081930";
+const GST_RATE_PERCENT = 5;
+const CGST_RATE_PERCENT = GST_RATE_PERCENT / 2;
+const SGST_RATE_PERCENT = GST_RATE_PERCENT / 2;
+
+const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+function getInclusiveTaxBreakup(amount: number) {
+  if (amount <= 0) {
+    return { taxableValue: 0, cgst: 0, sgst: 0 };
+  }
+
+  const taxableValue = roundCurrency((amount * 100) / (100 + GST_RATE_PERCENT));
+  const totalGst = roundCurrency(amount - taxableValue);
+  const cgst = roundCurrency(totalGst / 2);
+  const sgst = roundCurrency(totalGst - cgst);
+
+  return { taxableValue, cgst, sgst };
+}
+
 function buildInvoiceHtml(order: Order) {
+  const invoiceTax = getInclusiveTaxBreakup(order.total);
   const rows = order.items
     .map(
-      (item) =>
-        `<tr><td>${escapeHtml(item.productTitle)}</td><td>${escapeHtml(item.variantLabel)}</td><td>${item.quantity}</td><td>${formatCurrency(item.lineTotal)}</td></tr>`
+      (item) => {
+        const lineTax = getInclusiveTaxBreakup(item.lineTotal);
+        return `<tr>
+          <td>${escapeHtml(item.productTitle)}</td>
+          <td>${escapeHtml(item.variantLabel)}</td>
+          <td>${HSN_CODE}</td>
+          <td>${item.quantity}</td>
+          <td>${GST_RATE_PERCENT}%</td>
+          <td>${formatCurrency(lineTax.taxableValue)}</td>
+          <td>${formatCurrency(item.lineTotal)}</td>
+        </tr>`;
+      }
     )
     .join("");
 
@@ -60,32 +105,56 @@ function buildInvoiceHtml(order: Order) {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Invoice ${escapeHtml(order.id)}</title>
+  <title>Tax Invoice ${escapeHtml(order.id)}</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }
-    h1 { margin: 0 0 12px; }
+    body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; background: #fffdf8; }
+    h1 { margin: 0 0 12px; color: #184b39; }
     table { width: 100%; border-collapse: collapse; margin-top: 12px; }
     th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 13px; }
-    th { background: #f9fafb; }
+    th { background: #184b39; color: #ffffff; }
     .meta { margin: 4px 0; font-size: 13px; }
-    .totals { margin-top: 16px; width: 320px; margin-left: auto; }
+    .totals { margin-top: 16px; width: 360px; margin-left: auto; }
     .totals div { display: flex; justify-content: space-between; padding: 4px 0; }
     .bold { font-weight: 700; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .card { border: 1px solid #d1d5db; border-radius: 12px; padding: 14px; background: #ffffff; }
+    .signature { margin-top: 36px; padding-top: 8px; border-top: 1px solid #9ca3af; text-align: right; }
   </style>
 </head>
 <body>
-  <h1>Invoice</h1>
+  <h1>Tax Invoice</h1>
+  <div class="grid">
+    <div class="card">
+      <p class="meta"><strong>${SELLER_NAME}</strong></p>
+      <p class="meta"><strong>Address:</strong> ${SELLER_ADDRESS}</p>
+      <p class="meta"><strong>Contact:</strong> ${SELLER_CONTACT}</p>
+      <p class="meta"><strong>Email:</strong> ${SELLER_EMAIL}</p>
+      <p class="meta"><strong>GSTIN:</strong> ${SELLER_GSTIN}</p>
+      <p class="meta"><strong>FSSAI License:</strong> ${SELLER_FSSAI}</p>
+    </div>
+    <div class="card">
+      <p class="meta"><strong>Order ID:</strong> ${escapeHtml(order.id)}</p>
+      <p class="meta"><strong>Invoice Date:</strong> ${formatDate(order.createdAt)}</p>
+      <p class="meta"><strong>Payment ID:</strong> ${escapeHtml(order.paymentId)}</p>
+      <p class="meta"><strong>Payment Mode:</strong> Online</p>
+      <p class="meta"><strong>Order Source:</strong> Website</p>
+    </div>
+  </div>
   <p class="meta"><strong>Order ID:</strong> ${escapeHtml(order.id)}</p>
   <p class="meta"><strong>Payment ID:</strong> ${escapeHtml(order.paymentId)}</p>
   <p class="meta"><strong>Payment Status:</strong> ${escapeHtml(order.paymentStatus ?? (order.paymentId ? "Paid" : "Pending"))}</p>
   <p class="meta"><strong>Placed:</strong> ${formatDate(order.createdAt)}</p>
-  <p class="meta"><strong>Customer:</strong> ${escapeHtml(order.customerName ?? "-")}</p>
-  <p class="meta"><strong>Email:</strong> ${escapeHtml(order.customerEmail ?? "-")}</p>
-  <p class="meta"><strong>Phone:</strong> ${escapeHtml(order.customerPhone ?? "-")}</p>
-  <p class="meta"><strong>Address:</strong> ${escapeHtml(order.addressLine1 ?? "-")}, ${escapeHtml(order.addressLine2 ?? "-")} - ${escapeHtml(order.pinCode ?? "-")}</p>
+  <div class="card" style="margin-top: 16px;">
+    <p class="meta"><strong>Bill To</strong></p>
+    <p class="meta"><strong>Name:</strong> ${escapeHtml(order.customerName ?? "-")}</p>
+    <p class="meta"><strong>Address:</strong> ${escapeHtml(order.addressLine1 ?? "-")}, ${escapeHtml(order.addressLine2 ?? "-")}, ${escapeHtml(order.shippingCity ?? "-")} ${escapeHtml(order.shippingState ?? "")} - ${escapeHtml(order.pinCode ?? "-")}</p>
+    <p class="meta"><strong>GST:</strong> ${escapeHtml(order.customerGstn || "Nil")}</p>
+    <p class="meta"><strong>Phone:</strong> ${escapeHtml(formatCustomerPhone(order.customerPhone))}</p>
+    <p class="meta"><strong>Email:</strong> ${escapeHtml(order.customerEmail ?? "-")}</p>
+  </div>
   <table>
     <thead>
-      <tr><th>Product</th><th>Variant</th><th>Qty</th><th>Amount</th></tr>
+      <tr><th>Product</th><th>Variant</th><th>HSN</th><th>Qty</th><th>GST Rate</th><th>Taxable Value</th><th>Amount</th></tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>
@@ -93,7 +162,19 @@ function buildInvoiceHtml(order: Order) {
     <div><span>Subtotal</span><span>${formatCurrency(order.subtotal)}</span></div>
     <div><span>${escapeHtml(order.discountCode ?? "Discount")}</span><span>-${formatCurrency(order.discountAmount)}</span></div>
     <div><span>Shipping</span><span>${order.shipping === 0 ? "Free" : formatCurrency(order.shipping)}</span></div>
+    <div><span>Taxable Value</span><span>${formatCurrency(invoiceTax.taxableValue)}</span></div>
+    <div><span>CGST @ ${CGST_RATE_PERCENT}%</span><span>${formatCurrency(invoiceTax.cgst)}</span></div>
+    <div><span>SGST @ ${SGST_RATE_PERCENT}%</span><span>${formatCurrency(invoiceTax.sgst)}</span></div>
     <div class="bold"><span>Total</span><span>${formatCurrency(order.total)}</span></div>
+  </div>
+  <div class="card" style="margin-top: 16px;">
+    <p class="meta"><strong>Terms & Conditions</strong></p>
+    <p class="meta">Goods once sold will not be taken back.</p>
+    <p class="meta">Subject to Siliguri Jurisdiction.</p>
+  </div>
+  <div class="signature">
+    <p><strong>Authorized Signature</strong></p>
+    <p>For ${SELLER_NAME}</p>
   </div>
 </body>
 </html>`;
@@ -150,6 +231,7 @@ export function AdminOrdersView() {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [orderStatusDrafts, setOrderStatusDrafts] = useState<Record<string, AdminOrderStatus>>({});
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
+  const [mailingInvoiceOrderId, setMailingInvoiceOrderId] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [userDraft, setUserDraft] = useState<{ name: string; phone: string; email: string; role: "user" | "admin" } | null>(null);
   const [savingUserId, setSavingUserId] = useState<number | null>(null);
@@ -302,6 +384,21 @@ export function AdminOrdersView() {
       addToast(error instanceof Error ? error.message : "Unable to delete order.", "info");
     } finally {
       setDeletingOrderId(null);
+    }
+  };
+
+  const sendInvoiceTestMail = async (orderId: string) => {
+    if (!token) return;
+    setMailingInvoiceOrderId(orderId);
+    try {
+      await apiFetch<{ ok: true; orderId: string }>(`/api/admin/orders/${orderId}/test-invoice-email`, {
+        method: "POST"
+      }, token);
+      addToast(`Invoice test email sent for ${orderId}.`);
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "Unable to send invoice test email.", "info");
+    } finally {
+      setMailingInvoiceOrderId(null);
     }
   };
 
@@ -728,13 +825,23 @@ export function AdminOrdersView() {
                         </div>
                       </td>
                       <td className="px-2 py-3">
-                        <button
-                          type="button"
-                          onClick={() => downloadInvoice(order)}
-                          className="focus-ring rounded-full border border-pine px-3 py-1 text-xs text-pine"
-                        >
-                          Download
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => downloadInvoice(order)}
+                            className="focus-ring rounded-full border border-pine px-3 py-1 text-xs text-pine"
+                          >
+                            Download
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => sendInvoiceTestMail(order.id)}
+                            disabled={mailingInvoiceOrderId === order.id}
+                            className="focus-ring rounded-full border border-pine px-3 py-1 text-xs text-pine disabled:opacity-50"
+                          >
+                            {mailingInvoiceOrderId === order.id ? "Mailing..." : "Mail Invoice"}
+                          </button>
+                        </div>
                       </td>
                       <td className="px-2 py-3">
                         <button

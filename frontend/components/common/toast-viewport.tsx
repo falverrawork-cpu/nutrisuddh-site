@@ -14,7 +14,7 @@ export function ToastViewport() {
     const timers = toasts.map((toast) =>
       setTimeout(() => {
         removeToast(toast.id);
-      }, 500)
+      }, 3000)
     );
     return () => timers.forEach((timer) => clearTimeout(timer));
   }, [toasts, removeToast]);

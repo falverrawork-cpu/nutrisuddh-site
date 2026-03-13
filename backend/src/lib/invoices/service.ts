@@ -29,6 +29,7 @@ type OrderRow = {
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
+  customer_gstn: string | null;
   address_line1: string | null;
   address_line2: string | null;
   shipping_city: string | null;
@@ -126,6 +127,7 @@ export async function ensureOrderInvoice(orderId: string): Promise<InvoiceRecord
     customerName: order.customer_name ?? "Customer",
     customerPhone: order.customer_phone ?? "-",
     customerEmail: order.customer_email ?? "-",
+    customerGstn: order.customer_gstn ?? "",
     addressLine1: order.address_line1 ?? "-",
     addressLine2: order.address_line2 ?? "",
     city: order.shipping_city ?? "",
@@ -137,7 +139,7 @@ export async function ensureOrderInvoice(orderId: string): Promise<InvoiceRecord
     shipping: order.shipping,
     total: order.total,
     items: items.map((item) => ({
-      productName: item.product_title,
+      productName: `${item.product_title} (70 gms)`,
       quantity: item.quantity,
       productPrice: item.unit_price,
       totalPrice: item.line_total

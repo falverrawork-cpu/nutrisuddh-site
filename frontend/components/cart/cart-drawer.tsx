@@ -19,6 +19,7 @@ export function CartDrawer() {
   const cart = useShopStore((state) => state.cart);
   const appliedCouponCode = useShopStore((state) => state.appliedCouponCode);
   const setCartQuantity = useShopStore((state) => state.setCartQuantity);
+  const setCartGiftPack = useShopStore((state) => state.setCartGiftPack);
   const removeFromCart = useShopStore((state) => state.removeFromCart);
   const addToast = useUIStore((state) => state.addToast);
   const open = useUIStore((state) => state.isCartOpen);
@@ -99,6 +100,9 @@ export function CartDrawer() {
                         removeFromCart(line.item.productId, line.item.variantId);
                         addToast(getCartNudge(nextEligibleQty).message, "info");
                       }}
+                      onGiftPackChange={(giftPack) => {
+                        setCartGiftPack(line.item.productId, line.item.variantId, giftPack);
+                      }}
                     />
                   ))}
                 </div>
@@ -111,6 +115,12 @@ export function CartDrawer() {
                     <div className="mt-2 flex items-center justify-between text-sm text-pine">
                       <span>Discount</span>
                       <span>-{formatCurrency(pricing.discountAmount)}</span>
+                    </div>
+                  )}
+                  {pricing.giftPackCharge > 0 && (
+                    <div className="mt-2 flex items-center justify-between text-sm">
+                      <span>Gift Pack Charge</span>
+                      <span>{formatCurrency(pricing.giftPackCharge)}</span>
                     </div>
                   )}
                   <div className="mt-2 flex items-center justify-between text-sm">

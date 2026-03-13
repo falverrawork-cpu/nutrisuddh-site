@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_name TEXT,
   customer_email TEXT,
   customer_phone TEXT,
+  customer_gstn TEXT,
   address_line1 TEXT,
   address_line2 TEXT,
   shipping_city TEXT,
@@ -137,4 +138,8 @@ if (!hasInvoicePathColumn) {
 const hasInvoiceGeneratedAtColumn = orderColumns.some((column) => column.name === "invoice_generated_at");
 if (!hasInvoiceGeneratedAtColumn) {
   db.exec("ALTER TABLE orders ADD COLUMN invoice_generated_at TEXT");
+}
+const hasCustomerGstnColumn = orderColumns.some((column) => column.name === "customer_gstn");
+if (!hasCustomerGstnColumn) {
+  db.exec("ALTER TABLE orders ADD COLUMN customer_gstn TEXT");
 }

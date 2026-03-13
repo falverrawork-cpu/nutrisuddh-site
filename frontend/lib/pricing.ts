@@ -2,8 +2,10 @@ import { CartItem, Product } from "@/lib/types";
 import { getDetailedCartItems } from "@/lib/cart";
 
 export const SINGLE_PACK_MRP = 299;
-export const SINGLE_PACK_SELLING_PRICE = 219;
+export const SINGLE_PACK_SELLING_PRICE = 229;
 export const SHIPPING_FEE_DEFAULT = 79;
+export const GIFT_PACK_CHARGE_BUNDLE_3 = 100;
+export const GIFT_PACK_CHARGE_BUNDLE_6 = 180;
 
 export type DiscountCode = "COMBO03" | "YUVA200" | "PARTY06" | "YUVA400" | "NAVA001" | "YUVA03";
 
@@ -15,6 +17,7 @@ export type CartNudge = {
 
 export type CartPricing = {
   subtotal: number;
+  giftPackCharge: number;
   shipping: number;
   discountAmount: number;
   discountCode: DiscountCode | null;
@@ -315,6 +318,16 @@ export function getCartPricing(cart: CartItem[], couponCodeInput?: string | null
   const lines = getDetailedCartItems(cart);
 
   const subtotal = lines.reduce((sum, line) => sum + line.linePrice, 0);
+  const giftPackCharge = lines.reduce((sum, line) => {
+    if (!line.item.giftPack || line.item.sourceCouponCode) return sum;
+    if (isComboBundle3Product(line.product)) {
+      return sum + GIFT_PACK_CHARGE_BUNDLE_3 * line.item.quantity;
+    }
+    if (isComboBundle6Product(line.product)) {
+      return sum + GIFT_PACK_CHARGE_BUNDLE_6 * line.item.quantity;
+    }
+    return sum;
+  }, 0);
   const eligibleQty = lines
     .filter((line) => isEligibleSinglePack(line.product))
     .reduce((sum, line) => sum + line.item.quantity, 0);
@@ -353,10 +366,11 @@ export function getCartPricing(cart: CartItem[], couponCodeInput?: string | null
   discountAmount = Math.min(subtotal, Math.round(discountAmount));
 
   const shipping = discountCode ? 0 : SHIPPING_FEE_DEFAULT;
-  const finalPayable = Math.max(0, subtotal - discountAmount + shipping);
+  const finalPayable = Math.max(0, subtotal - discountAmount + giftPackCharge + shipping);
 
   return {
     subtotal,
+    giftPackCharge,
     shipping,
     discountAmount,
     discountCode,

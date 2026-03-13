@@ -65,6 +65,7 @@ export type CartItem = {
   productId: string;
   variantId: string;
   quantity: number;
+  giftPack?: boolean;
   isFreeItem?: boolean;
   sourceCouponCode?: string;
 };
@@ -95,6 +96,7 @@ export type Order = {
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
+  customerGstn?: string;
   addressLine1?: string;
   addressLine2?: string;
   shippingCity?: string;
