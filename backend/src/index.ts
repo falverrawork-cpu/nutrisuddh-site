@@ -916,31 +916,37 @@ app.post("/api/orders", requireAuth, async (req: AuthRequest, res) => {
       body.items
     );
 
-    let invoiceRecord:
-      | {
-          invoiceNumber: string;
-          invoicePath: string;
-          invoiceGeneratedAt: string;
+    res.json({ ok: true, orderId: body.id });
+
+    void (async () => {
+      let invoiceRecord:
+        | {
+            invoiceNumber: string;
+            invoicePath: string;
+            invoiceGeneratedAt: string;
+          }
+        | null = null;
+
+      if (INVOICE_ELIGIBLE_STATUSES.has(body.status || "Pending")) {
+        try {
+          invoiceRecord = await ensureOrderInvoice(body.id);
+        } catch (error) {
+          console.error(`Invoice generation failed for order ${body.id}`, error);
         }
-      | null = null;
-
-    if (INVOICE_ELIGIBLE_STATUSES.has(body.status || "Pending")) {
-      try {
-        invoiceRecord = await ensureOrderInvoice(body.id);
-      } catch (error) {
-        console.error(`Invoice generation failed for order ${body.id}`, error);
       }
-    }
 
-    void sendOrderConfirmationEmails({
-      ...mailOrder,
-      invoiceNumber: invoiceRecord?.invoiceNumber ?? null,
-      invoicePath: invoiceRecord?.invoicePath ?? null
-    }).catch((error) => {
-      console.error(`Order confirmation email failed for order ${body.id}`, error);
-    });
+      try {
+        await sendOrderConfirmationEmails({
+          ...mailOrder,
+          invoiceNumber: invoiceRecord?.invoiceNumber ?? null,
+          invoicePath: invoiceRecord?.invoicePath ?? null
+        });
+      } catch (error) {
+        console.error(`Order confirmation email failed for order ${body.id}`, error);
+      }
+    })();
 
-    return res.json({ ok: true, orderId: body.id });
+    return;
   } catch (error) {
     console.error("Create order failed", error);
     return res.status(500).json({ error: "Unable to store order." });

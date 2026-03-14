@@ -118,6 +118,7 @@ const normalizeIndianPhoneInput = (value: string) => value.replace(/\D/g, "").sl
 export function CheckoutView() {
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showOrderProcessingOverlay, setShowOrderProcessingOverlay] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [showCouponList, setShowCouponList] = useState(false);
@@ -370,6 +371,7 @@ export function CheckoutView() {
           contact: checkoutIdentity.phone || undefined
         },
         handler: async (response: RazorpayPaymentResponse) => {
+          setShowOrderProcessingOverlay(true);
           try {
             const verification = await verifyPayment({
               razorpay_payment_id: response.razorpay_payment_id,
@@ -445,11 +447,15 @@ export function CheckoutView() {
           } catch (error) {
             addToast(error instanceof Error ? error.message : "Payment verification failed.", "info");
           } finally {
+            setShowOrderProcessingOverlay(false);
             setIsProcessing(false);
           }
         },
         modal: {
-          ondismiss: () => setIsProcessing(false)
+          ondismiss: () => {
+            setShowOrderProcessingOverlay(false);
+            setIsProcessing(false);
+          }
         },
         theme: {
           color: "#0B6E4F"
@@ -859,6 +865,20 @@ export function CheckoutView() {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {showOrderProcessingOverlay && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#163127]/55 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[28px] border border-white/20 bg-[linear-gradient(160deg,rgba(255,251,235,0.98),rgba(255,255,255,0.98))] p-6 text-center shadow-[0_30px_80px_rgba(0,0,0,0.22)]">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-pine/10">
+              <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-pine/20 border-t-pine" />
+            </div>
+            <h3 className="mt-4 font-display text-2xl text-ink">Please wait while we process your order</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Payment is successful. We are confirming your order and preparing the invoice.
+            </p>
           </div>
         </div>
       )}
