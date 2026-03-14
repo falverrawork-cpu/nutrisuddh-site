@@ -114,7 +114,8 @@ export function OrdersView() {
 
     setDownloadingInvoiceId(order.id);
     try {
-      const response = await fetch(`/api/orders/${order.id}/invoice`, {
+      const response = await fetch(`/api/orders/${order.id}/invoice?t=${Date.now()}`, {
+        cache: "no-store",
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -126,7 +127,9 @@ export function OrdersView() {
       }
 
       const blob = await response.blob();
-      const filename = order.invoiceNumber ? `${order.invoiceNumber}.pdf` : `invoice-${order.id}.pdf`;
+      const contentDisposition = response.headers.get("content-disposition") ?? "";
+      const matchedFilename = contentDisposition.match(/filename="?([^"]+)"?/i)?.[1];
+      const filename = matchedFilename || (order.invoiceNumber ? `${order.invoiceNumber}.pdf` : `invoice-${order.id}.pdf`);
       triggerBrowserDownload(blob, filename);
 
       if (!order.invoiceNumber) {

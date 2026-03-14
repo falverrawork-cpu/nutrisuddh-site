@@ -1002,7 +1002,13 @@ app.get("/api/orders/:orderId/invoice", requireAuth, async (req: AuthRequest, re
     }
 
     const invoice = await ensureOrderInvoice(orderId);
-    return res.download(invoice.invoicePath, getInvoiceDownloadFilename(invoice.invoiceNumber));
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    return res.download(
+      invoice.invoicePath,
+      getInvoiceDownloadFilename(invoice.invoiceNumber, invoice.invoiceGeneratedAt)
+    );
   } catch (error) {
     console.error("Download invoice failed", error);
     return res.status(500).json({ error: "Unable to download invoice." });

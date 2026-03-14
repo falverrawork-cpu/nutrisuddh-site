@@ -66,8 +66,23 @@ export type InvoiceRecord = {
   invoiceGeneratedAt: string;
 };
 
-export function getInvoiceDownloadFilename(invoiceNumber: string) {
-  return `${invoiceNumber}.pdf`;
+function formatInvoiceDownloadStamp(iso: string) {
+  const date = new Date(iso);
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  const hh = String(date.getUTCHours()).padStart(2, "0");
+  const min = String(date.getUTCMinutes()).padStart(2, "0");
+  const sec = String(date.getUTCSeconds()).padStart(2, "0");
+  return `${yyyy}${mm}${dd}-${hh}${min}${sec}`;
+}
+
+export function getInvoiceDownloadFilename(invoiceNumber: string, invoiceGeneratedAt?: string) {
+  if (!invoiceGeneratedAt) {
+    return `${invoiceNumber}.pdf`;
+  }
+
+  return `${invoiceNumber}-${formatInvoiceDownloadStamp(invoiceGeneratedAt)}.pdf`;
 }
 
 export function getOrderInvoiceRecord(orderId: string) {
@@ -104,7 +119,8 @@ export async function ensureOrderInvoice(orderId: string): Promise<InvoiceRecord
     setOrderInvoiceNumberOnly.run(invoiceNumber, orderId);
   }
 
-  const outputPath = path.join(invoicesDir, `${invoiceNumber}.pdf`);
+  const generatedAt = new Date().toISOString();
+  const outputPath = path.join(invoicesDir, `${invoiceNumber}-${Date.now()}.pdf`);
   const html = buildInvoiceHtml({
     invoiceNumber,
     orderId: order.id,
@@ -133,7 +149,6 @@ export async function ensureOrderInvoice(orderId: string): Promise<InvoiceRecord
 
   await renderInvoicePdf(html, outputPath);
 
-  const generatedAt = new Date().toISOString();
   setOrderInvoiceMetadata.run(invoiceNumber, outputPath, generatedAt, orderId);
 
   return {
