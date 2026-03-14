@@ -20,6 +20,7 @@ export function ProductCard({ product }: Props) {
   const openAuthModal = useUIStore((state) => state.openAuthModal);
   const token = useAuthStore((state) => state.token);
   const isComboPack = product.tags.includes("combo-pack");
+  const comboName = isComboPack ? product.subtitle : null;
 
   return (
     <motion.article whileHover={{ y: -3 }} transition={{ duration: 0.2 }} className="group card-surface overflow-hidden">
@@ -56,10 +57,15 @@ export function ProductCard({ product }: Props) {
       </div>
 
       <div className="p-4">
+        {comboName && (
+          <div className="mb-3 inline-flex max-w-full rounded-full border border-[#d97706]/25 bg-[linear-gradient(135deg,#fff7ed_0%,#fef3c7_100%)] px-3 py-1.5 shadow-[0_8px_24px_rgba(217,119,6,0.12)]">
+            <span className="line-clamp-1 text-sm font-semibold text-[#7c2d12]">{comboName}</span>
+          </div>
+        )}
         <Link href={`/products/${product.slug}`}>
           <h3 className="line-clamp-1 text-sm font-semibold sm:text-base">{product.title}</h3>
         </Link>
-        <p className="mt-1 line-clamp-1 text-xs text-gray-500">{product.subtitle}</p>
+        {!comboName && <p className="mt-1 line-clamp-1 text-xs text-gray-500">{product.subtitle}</p>}
         <div className="mt-2 flex items-center gap-2">
           <p className="text-sm font-semibold text-ink">{formatCurrency(product.price)}</p>
           <p className="text-xs text-gray-400 line-through">{formatCurrency(product.compareAtPrice)}</p>

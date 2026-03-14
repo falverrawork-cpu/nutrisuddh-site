@@ -25,6 +25,8 @@ export function ProductPurchase({ product, images }: { product: Product; images?
   const galleryImages = images && images.length > 0 ? images : product.images;
   const isGiftPackEligible = isComboBundle3Product(product) || isComboBundle6Product(product);
   const giftPackCharge = isComboBundle3Product(product) ? GIFT_PACK_CHARGE_BUNDLE_3 : GIFT_PACK_CHARGE_BUNDLE_6;
+  const isComboPack = product.tags.includes("combo-pack");
+  const comboName = isComboPack ? product.subtitle : null;
 
   return (
     <div className="card-surface w-full px-4 pb-4 pt-3 sm:px-6 sm:pb-6 sm:pt-4">
@@ -34,9 +36,14 @@ export function ProductPurchase({ product, images }: { product: Product; images?
         </div>
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-pine">Premium Snacking</p>
+          {comboName && (
+            <div className="mt-3 inline-flex max-w-full rounded-full border border-[#d97706]/20 bg-[linear-gradient(135deg,#fff7ed_0%,#fef3c7_100%)] px-4 py-2 shadow-[0_10px_28px_rgba(217,119,6,0.12)]">
+              <p className="line-clamp-1 text-sm font-semibold text-[#7c2d12] sm:text-base">{comboName}</p>
+            </div>
+          )}
           <h1 className="mt-2 font-display text-2xl sm:text-3xl">{product.title}</h1>
-          <p className="text-sm text-gray-600">{product.subtitle}</p>
-          {product.tags.includes("combo-pack") && (
+          {!comboName && <p className="text-sm text-gray-600">{product.subtitle}</p>}
+          {isComboPack && (
             <p className="mt-2 text-xs text-gray-500">
               Disclaimer: Pack does not come in the exact same packaging shown in the image.
             </p>

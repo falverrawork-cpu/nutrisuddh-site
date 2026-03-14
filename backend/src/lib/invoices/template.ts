@@ -111,8 +111,33 @@ function getInclusiveTaxBreakup(amount: number) {
   };
 }
 
+function getInvoiceTaxSummary(items: InvoiceItem[], fallbackSubtotal: number) {
+  if (items.length === 0) {
+    return getInclusiveTaxBreakup(fallbackSubtotal);
+  }
+
+  return items.reduce(
+    (acc, item) => {
+      const lineTax = getInclusiveTaxBreakup(item.totalPrice);
+      acc.grossAmount = roundCurrency(acc.grossAmount + lineTax.grossAmount);
+      acc.taxableValue = roundCurrency(acc.taxableValue + lineTax.taxableValue);
+      acc.totalGst = roundCurrency(acc.totalGst + lineTax.totalGst);
+      acc.cgst = roundCurrency(acc.cgst + lineTax.cgst);
+      acc.sgst = roundCurrency(acc.sgst + lineTax.sgst);
+      return acc;
+    },
+    {
+      grossAmount: 0,
+      taxableValue: 0,
+      totalGst: 0,
+      cgst: 0,
+      sgst: 0
+    }
+  );
+}
+
 export function buildInvoiceHtml(data: InvoiceTemplateData) {
-  const invoiceTax = getInclusiveTaxBreakup(data.total);
+  const invoiceTax = getInvoiceTaxSummary(data.items, data.subtotal);
   const itemRows = data.items
     .map((item, index) => {
       const lineTax = getInclusiveTaxBreakup(item.totalPrice);
@@ -364,22 +389,6 @@ export function buildInvoiceHtml(data: InvoiceTemplateData) {
           </div>
           <div class="totals">
             <div class="totals-row">
-              <span>Subtotal</span>
-              <span>${formatCurrency(data.subtotal)}</span>
-            </div>
-            ${data.discountCode && data.discountAmount > 0
-              ? `
-                <div class="totals-row">
-                  <span>Coupon (${escapeHtml(data.discountCode)})</span>
-                  <span>- ${formatCurrency(data.discountAmount)}</span>
-                </div>
-              `
-              : ""}
-            <div class="totals-row">
-              <span>Shipping</span>
-              <span>${data.shipping === 0 ? "Free" : formatCurrency(data.shipping)}</span>
-            </div>
-            <div class="totals-row">
               <span>Taxable Value</span>
               <span>${formatCurrency(invoiceTax.taxableValue)}</span>
             </div>
@@ -391,6 +400,22 @@ export function buildInvoiceHtml(data: InvoiceTemplateData) {
               <span>SGST @ ${SGST_RATE_PERCENT}%</span>
               <span>${formatCurrency(invoiceTax.sgst)}</span>
             </div>
+            <div class="totals-row">
+              <span>Subtotal</span>
+              <span>${formatCurrency(data.subtotal)}</span>
+            </div>
+            <div class="totals-row">
+              <span>Shipping</span>
+              <span>${data.shipping === 0 ? "Free" : formatCurrency(data.shipping)}</span>
+            </div>
+            ${data.discountCode && data.discountAmount > 0
+              ? `
+                <div class="totals-row">
+                  <span>Coupon (${escapeHtml(data.discountCode)})</span>
+                  <span>- ${formatCurrency(data.discountAmount)}</span>
+                </div>
+              `
+              : ""}
             <div class="totals-row total">
               <span>Total Amount</span>
               <span>${formatCurrency(data.total)}</span>

@@ -82,8 +82,25 @@ function getInclusiveTaxBreakup(amount: number) {
   return { taxableValue, cgst, sgst };
 }
 
+function getInvoiceTaxSummary(order: Order) {
+  if (!order.items.length) {
+    return getInclusiveTaxBreakup(order.subtotal);
+  }
+
+  return order.items.reduce(
+    (acc, item) => {
+      const lineTax = getInclusiveTaxBreakup(item.lineTotal);
+      acc.taxableValue = roundCurrency(acc.taxableValue + lineTax.taxableValue);
+      acc.cgst = roundCurrency(acc.cgst + lineTax.cgst);
+      acc.sgst = roundCurrency(acc.sgst + lineTax.sgst);
+      return acc;
+    },
+    { taxableValue: 0, cgst: 0, sgst: 0 }
+  );
+}
+
 function buildInvoiceHtml(order: Order) {
-  const invoiceTax = getInclusiveTaxBreakup(order.total);
+  const invoiceTax = getInvoiceTaxSummary(order);
   const rows = order.items
     .map(
       (item) => {
@@ -159,12 +176,12 @@ function buildInvoiceHtml(order: Order) {
     <tbody>${rows}</tbody>
   </table>
   <div class="totals">
-    <div><span>Subtotal</span><span>${formatCurrency(order.subtotal)}</span></div>
-    <div><span>${escapeHtml(order.discountCode ?? "Discount")}</span><span>-${formatCurrency(order.discountAmount)}</span></div>
-    <div><span>Shipping</span><span>${order.shipping === 0 ? "Free" : formatCurrency(order.shipping)}</span></div>
     <div><span>Taxable Value</span><span>${formatCurrency(invoiceTax.taxableValue)}</span></div>
     <div><span>CGST @ ${CGST_RATE_PERCENT}%</span><span>${formatCurrency(invoiceTax.cgst)}</span></div>
     <div><span>SGST @ ${SGST_RATE_PERCENT}%</span><span>${formatCurrency(invoiceTax.sgst)}</span></div>
+    <div><span>Subtotal</span><span>${formatCurrency(order.subtotal)}</span></div>
+    <div><span>Shipping</span><span>${order.shipping === 0 ? "Free" : formatCurrency(order.shipping)}</span></div>
+    <div><span>${escapeHtml(order.discountCode ?? "Discount")}</span><span>-${formatCurrency(order.discountAmount)}</span></div>
     <div class="bold"><span>Total</span><span>${formatCurrency(order.total)}</span></div>
   </div>
   <div class="card" style="margin-top: 16px;">
