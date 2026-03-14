@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { db } from "../db";
@@ -96,20 +95,6 @@ export async function ensureOrderInvoice(orderId: string): Promise<InvoiceRecord
 
   if (!INVOICE_ELIGIBLE_STATUSES.has(order.status)) {
     throw new Error("Invoice is only available for confirmed orders.");
-  }
-
-  if (
-    order.invoice_number &&
-    order.invoice_path &&
-    order.invoice_generated_at &&
-    fs.existsSync(order.invoice_path)
-  ) {
-    return {
-      orderId: order.id,
-      invoiceNumber: order.invoice_number,
-      invoicePath: order.invoice_path,
-      invoiceGeneratedAt: order.invoice_generated_at
-    };
   }
 
   const items = getOrderItemsByOrderId.all(orderId) as OrderItemRow[];
