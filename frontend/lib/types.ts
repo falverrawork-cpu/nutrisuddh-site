@@ -1,4 +1,4 @@
-export type ProductBadge = "Bestseller" | "New" | "Best Value" | `${number}% OFF`;
+export type ProductBadge = "Bestseller" | "New" | "Best Value" | "Hero Flavour" | `${number}% OFF`;
 
 export type ProductVariant = {
   id: string;

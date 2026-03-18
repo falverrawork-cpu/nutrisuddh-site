@@ -45,7 +45,7 @@ export function ProductPurchase({ product, images }: { product: Product; images?
           {!comboName && <p className="text-sm text-gray-600">{product.subtitle}</p>}
           {isComboPack && (
             <p className="mt-2 text-xs text-gray-500">
-              Disclaimer: Pack does not come in the exact same packaging shown in the image.
+              Disclaimer: Pack does not come in the same packaging shown in the image.
             </p>
           )}
 

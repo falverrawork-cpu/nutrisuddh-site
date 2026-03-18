@@ -53,6 +53,7 @@ export function SiteFooter() {
           <p>© {new Date().getFullYear()} Nutri Suddh. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <Link href="https://www.instagram.com/nutrisuddh/" className="link-hover" target="_blank" rel="noreferrer noopener">Instagram</Link>
+            <Link href="https://www.facebook.com/p/NUTRI-SUDDH-61577812042298/?_rdr" className="link-hover" target="_blank" rel="noreferrer noopener">Facebook</Link>
             <Link href="https://www.linkedin.com/company/nutrisuddh/" className="link-hover" target="_blank" rel="noreferrer noopener">LinkedIn</Link>
           </div>
         </div>

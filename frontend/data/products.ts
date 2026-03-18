@@ -149,7 +149,7 @@ const seeds: ProductSeed[] = [
     tags: ["makhana-single", "flavoured", "cream-onion", "roasted"],
     collectionHandles: ["flavoured-makhana", "roasted-makhana", "cream-onion", "makhana-singles"],
     stock: 175,
-    badges: ["New", "27% OFF"],
+    badges: ["Hero Flavour", "27% OFF"],
     images: resolveFlavorImages("cream-onion", customFlavorImageSources["cream-onion"]),
     description:
       "Makhana, also known as Foxnuts or Lotus Seeds, are light yet satisfying superfoods packed with protein, minerals, and antioxidants. A healthier alternative to fried snacks, they are slow-roasted and gently seasoned to deliver a delicious crunch in every bite. Ideal for tea-time, travel, or mindful snacking anytime, anywhere.",
@@ -281,7 +281,7 @@ const seeds: ProductSeed[] = [
     id: "p6",
     slug: "combo-3-salt-pepper-pudina-tomato-chilli",
     title: "Combo of 3: Salt & Pepper + Cream & Onion + Tomato & Chilli",
-    subtitle: "Ghar ki Yaad Combo",
+    subtitle: "Classic Chatpata Trio",
     price:  687,
     compareAtPrice:  897,
     rating: 4.8,
@@ -296,13 +296,13 @@ const seeds: ProductSeed[] = [
       "https://ik.imagekit.io/Falverra/pudina-salt-tomato.png?updatedAt=1772868772699"
     ],
     description:
-      "Combo Name: Ghar ki Yaad Combo. Hero Hook: Three moods, one jar at a time. This combo covers daily snacking cravings without getting boring. What's inside: Salt & Pepper (clean classic crunch), Cream & Onion (smooth savoury richness), Tomato & Chilli (tangy spice punch). Flavour experience: start light with salt-pepper, move into creamy onion savouriness, then finish with tomato chilli heat. Why this combo works: balanced flavour mix, classic + creamy + spicy, ideal first-time trial pack. Perfect for office desk snacks, family sharing, tea-time platters, and first-time Nutrisuddh buyers. Clean snacking note: all variants are slow-roasted, never fried."
+      "Combo Name: Classic Chatpata Trio. Hero Hook: Three moods, one jar at a time. This combo covers daily snacking cravings without getting boring. What's inside: Salt & Pepper (clean classic crunch), Cream & Onion (smooth savoury richness), Tomato & Chilli (tangy spice punch). Flavour experience: start light with salt-pepper, move into creamy onion savouriness, then finish with tomato chilli heat. Why this combo works: balanced flavour mix, classic + creamy + spicy, ideal first-time trial pack. Perfect for office desk snacks, family sharing, tea-time platters, and first-time Nutrisuddh buyers. Clean snacking note: all variants are slow-roasted, never fried."
   },
   {
     id: "p7",
     slug: "combo-3-tomato-chilli-cream-onion-pudina",
     title: "Combo of 3: Tomato & Chilli + Cream & Onion + Pudina",
-    subtitle: "Doston wali Baat Combo",
+    subtitle: "Desi Masti Trio",
     price:  687,
     compareAtPrice:  897,
     rating: 4.8,
@@ -317,13 +317,13 @@ const seeds: ProductSeed[] = [
       "https://ik.imagekit.io/Falverra/tomato-pudina-cream.png?updatedAt=1772868772737"
     ],
     description:
-      "Combo Name: Doston wali Baat Combo. Hero Hook: Creamy, tangy, minty. Crafted for flavour lovers who enjoy bold taste with a smooth finish. What's inside: Tomato & Chilli (desi tang spice), Cream & Onion (smooth savoury richness), Pudina (cooling mint balance). Flavour experience: zesty tomato kick, creamy onion comfort, then mint freshness to reset the palate. Why this combo works: tangy + creamy + fresh mix, high-protein variants included, crowd-pleasing flavour profile. Perfect for Netflix nights, house parties, weekend cravings, and young snackers. Clean snacking note: foxnuts are naturally rich in antioxidants and fiber."
+      "Combo Name: Desi Masti Trio. Hero Hook: Creamy, tangy, minty. Crafted for flavour lovers who enjoy bold taste with a smooth finish. What's inside: Tomato & Chilli (desi tang spice), Cream & Onion (smooth savoury richness), Pudina (cooling mint balance). Flavour experience: zesty tomato kick, creamy onion comfort, then mint freshness to reset the palate. Why this combo works: tangy + creamy + fresh mix, high-protein variants included, crowd-pleasing flavour profile. Perfect for Netflix nights, house parties, weekend cravings, and young snackers. Clean snacking note: foxnuts are naturally rich in antioxidants and fiber."
   },
   {
     id: "p8",
     slug: "combo-3-cream-onion-peri-peri-cheese",
     title: "Combo of 3: Pudina + Peri Peri + Cheese",
-    subtitle: "Dil Se Desi Combo",
+    subtitle: "Movie Night Munch Box",
     price:  687,
     compareAtPrice:  897,
     rating: 4.9,
@@ -338,13 +338,13 @@ const seeds: ProductSeed[] = [
       "https://ik.imagekit.io/Falverra/pudina-cheese-periperi.png?updatedAt=1772868772810"
     ],
     description:
-      "Combo Name: Dil Se Desi Combo. Hero Hook: where freshness meets fire. This is a bold flavour lover's combo with minty lift, cheesy indulgence, and smoky peri peri heat. What's inside: Pudina (fresh minty crunch), Peri Peri (smoky global spice), Cheese (rich indulgent crunch). Flavour experience: refreshing pudina start, sharp cheesy bite, then a peri peri heat finish. Why this combo works: cheese-lover favourite, fresh plus spicy balance, perfect binge snacking box. Perfect for movie marathons, late-night cravings, cheese snack fans, and gifting boxes. Clean snacking note: all variants are roasted, not fried."
+      "Combo Name: Movie Night Munch Box. Hero Hook: where freshness meets fire. This is a bold flavour lover's combo with minty lift, cheesy indulgence, and smoky peri peri heat. What's inside: Pudina (fresh minty crunch), Peri Peri (smoky global spice), Cheese (rich indulgent crunch). Flavour experience: refreshing pudina start, sharp cheesy bite, then a peri peri heat finish. Why this combo works: cheese-lover favourite, fresh plus spicy balance, perfect binge snacking box. Perfect for movie marathons, late-night cravings, cheese snack fans, and gifting boxes. Clean snacking note: all variants are roasted, not fried."
   },
   {
     id: "p9",
     slug: "combo-3-pudina-cream-onion-peri-peri",
     title: "Combo of 3: Pudina + Cream & Onion + Peri Peri",
-    subtitle: "Sukoon Combo",
+    subtitle: "Party Starter Box",
     price:  687,
     compareAtPrice:  897,
     rating: 4.8,
@@ -359,7 +359,7 @@ const seeds: ProductSeed[] = [
       "https://ik.imagekit.io/Falverra/pudina-cream-periperi.png?updatedAt=1772868772756"
     ],
     description:
-      "Combo Name: Sukoon Combo. Hero Hook: cool, creamy, fiery. A balanced combo for those who want variety in every handful. What's inside: Pudina (mint refresh), Cream & Onion (savoury comfort), Peri Peri (smoky spice). Flavour experience: cooling mint entry, creamy savoury mid-notes, and spicy peri peri finish. Why this combo works: light + creamy + spicy contrast, balanced heat profile, and great sampler value. Perfect for road trips, office sharing, couple snacking, and flavour experimentation. Clean snacking note: a wholesome alternative to fried namkeens and chips."
+      "Combo Name: Party Starter Box. Hero Hook: cool, creamy, fiery. A balanced combo for those who want variety in every handful. What's inside: Pudina (mint refresh), Cream & Onion (savoury comfort), Peri Peri (smoky spice). Flavour experience: cooling mint entry, creamy savoury mid-notes, and spicy peri peri finish. Why this combo works: light + creamy + spicy contrast, balanced heat profile, and great sampler value. Perfect for road trips, office sharing, couple snacking, and flavour experimentation. Clean snacking note: a wholesome alternative to fried namkeens and chips."
   },
   {
     id: "p10",

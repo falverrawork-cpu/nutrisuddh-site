@@ -57,7 +57,7 @@ const formatCustomerPhone = (value?: string) => {
 };
 
 const SELLER_NAME = "NS AGRO OVERSEAS";
-const SELLER_ADDRESS = "Krishna Heights Building, Shop No 4, Pranami Mandir Road, Ward 40, Dist Darjeeling, Siliguri 734001.";
+const SELLER_ADDRESS = "Pranami mandir road, Siliguri, Dist Darjeeling WB 734001";
 const SELLER_CONTACT = "+91 7001988499";
 const SELLER_EMAIL = "contact@nutrisuddh.com";
 const SELLER_GSTIN = "19AKHPJ3048G1Z5";

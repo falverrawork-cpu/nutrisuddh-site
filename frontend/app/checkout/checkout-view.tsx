@@ -15,6 +15,7 @@ import {
   COUPON_OFFERS,
   GIFT_PACK_CHARGE_BUNDLE_3,
   GIFT_PACK_CHARGE_BUNDLE_6,
+  getFirstOrderAutoCouponCode,
   getCartNudge,
   getCartPricing,
   getCouponIneligibilityReason,
@@ -44,6 +45,10 @@ type CreateOrderResponse = {
 type AuthResponse = {
   token: string;
   user: AuthUser;
+};
+
+type CheckoutAccountStatusResponse = {
+  isFirstOrder: boolean;
 };
 
 const INDIA_STATE_OPTIONS = {
@@ -125,6 +130,7 @@ export function CheckoutView() {
   const [activeRecommendation, setActiveRecommendation] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [delivery, setDelivery] = useState<DeliveryDetails>(INITIAL_DELIVERY);
+  const [isFirstOrder, setIsFirstOrder] = useState(true);
 
   const cart = useShopStore((state) => state.cart);
   const appliedCouponCode = useShopStore((state) => state.appliedCouponCode);
@@ -142,7 +148,8 @@ export function CheckoutView() {
 
   const lines = getDetailedCartItems(cart);
   const eligibleCouponCodes = useMemo(() => getEligibleCouponCodes(cart), [cart]);
-  const pricing = getCartPricing(cart, appliedCouponCode);
+  const autoWelcomeCouponCode = useMemo(() => getFirstOrderAutoCouponCode(cart, isFirstOrder), [cart, isFirstOrder]);
+  const pricing = getCartPricing(cart, appliedCouponCode, { autoCouponCode: autoWelcomeCouponCode });
 
   const singleRecommendations = useMemo(() => {
     const inCartIds = new Set(lines.map((line) => line.product.id));
@@ -191,6 +198,36 @@ export function CheckoutView() {
       phone: current.phone || normalizeIndianPhoneInput(user.phone || "")
     }));
   }, [user]);
+
+  useEffect(() => {
+    const email = delivery.email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setIsFirstOrder(true);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await apiFetch<CheckoutAccountStatusResponse>("/api/auth/checkout-account-status", {
+          method: "POST",
+          body: JSON.stringify({ email })
+        });
+        if (!cancelled) {
+          setIsFirstOrder(result.isFirstOrder);
+        }
+      } catch {
+        if (!cancelled) {
+          setIsFirstOrder(true);
+        }
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [delivery.email]);
 
   useEffect(() => {
     if (!appliedCouponCode) return;
@@ -753,7 +790,15 @@ export function CheckoutView() {
                 Add {3 - pricing.eligibleQty} more item{3 - pricing.eligibleQty === 1 ? "" : "s"} to unlock checkout discount.
               </h3>
               <p className="mt-1 text-sm text-gray-600">
-                Unlock <span className="font-semibold text-pine">COMBO03</span> with free delivery and extra savings at 3 items.
+                {isFirstOrder ? (
+                  <>
+                    Unlock <span className="font-semibold text-pine">WELCOME03</span> with free delivery and extra savings at 3 items on your first order.
+                  </>
+                ) : (
+                  <>
+                    Add 3 items to qualify for bigger savings and free delivery using your eligible checkout coupons.
+                  </>
+                )}
               </p>
               <Link href="/collections/flavoured-makhana" className="focus-ring nudge-pop-glow mt-3 inline-flex items-center gap-1 rounded-full bg-pine px-4 py-2 text-sm font-semibold text-white">
                 Add More Items <ArrowRight size={14} />
@@ -766,9 +811,16 @@ export function CheckoutView() {
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-pine">Discount Upgrade Available</p>
               <h3 className="mt-1 text-base font-semibold text-ink">You unlocked 3-item discount. Add 3 more items for 6-item deal.</h3>
               <p className="mt-1 text-sm text-gray-600">
-                Current: <span className="font-semibold text-pine">COMBO03</span> | Next at 6 items:
-                {" "}
-                <span className="font-semibold text-pine">PARTY06 (bigger discount)</span>
+                {isFirstOrder ? (
+                  <>
+                    Current: <span className="font-semibold text-pine">WELCOME03</span> | Next at 6 items:{" "}
+                    <span className="font-semibold text-pine">WELCOME06 (bigger discount)</span>
+                  </>
+                ) : (
+                  <>
+                    Add 3 more items to unlock stronger savings and free delivery on eligible checkout coupons.
+                  </>
+                )}
               </p>
               <Link href="/collections/flavoured-makhana" className="focus-ring nudge-pop-glow mt-3 inline-flex items-center gap-1 rounded-full bg-pine px-4 py-2 text-sm font-semibold text-white">
                 Add More Items <ArrowRight size={14} />
@@ -847,7 +899,7 @@ export function CheckoutView() {
               </button>
             </div>
             <div className="mt-3 max-h-[60vh] space-y-2 overflow-y-auto pr-1">
-              {COUPON_OFFERS.filter((coupon) => !["NAVA001", "YUVA200", "YUVA400", "YUVA03"].includes(coupon.code)).map((coupon) => (
+              {COUPON_OFFERS.filter((coupon) => !["NAVA001", "YI200", "YI400", "YUVA03", "WELCOME03", "WELCOME06"].includes(coupon.code)).map((coupon) => (
                 <button
                   key={coupon.code}
                   type="button"

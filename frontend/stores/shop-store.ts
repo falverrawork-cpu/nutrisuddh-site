@@ -38,7 +38,7 @@ const updateCartItem = (
     .filter((item) => item.quantity > 0);
 };
 
-const activeCouponCodes = new Set<DiscountCode>(["COMBO03", "YUVA200", "PARTY06", "YUVA400", "NAVA001", "YUVA03"]);
+const activeCouponCodes = new Set<DiscountCode>(["YI200", "YI400", "NAVA001", "YUVA03", "NUTRISUDDH03"]);
 
 const syncCouponCart = (cart: CartItem[], appliedCouponCode: DiscountCode | null) => {
   const nextCart = cart.filter((item) => !item.sourceCouponCode);

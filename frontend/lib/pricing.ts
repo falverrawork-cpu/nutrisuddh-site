@@ -7,7 +7,7 @@ export const SHIPPING_FEE_DEFAULT = 79;
 export const GIFT_PACK_CHARGE_BUNDLE_3 = 100;
 export const GIFT_PACK_CHARGE_BUNDLE_6 = 180;
 
-export type DiscountCode = "COMBO03" | "YUVA200" | "PARTY06" | "YUVA400" | "NAVA001" | "YUVA03";
+export type DiscountCode = "WELCOME03" | "YI200" | "WELCOME06" | "YI400" | "NAVA001" | "YUVA03" | "NUTRISUDDH03";
 
 export type CartNudge = {
   message: string;
@@ -52,12 +52,11 @@ export type CouponOffer = {
 };
 
 export const COUPON_OFFERS: CouponOffer[] = [
-  { code: "COMBO03", label: "COMBO03", description: "25% OFF + Free Delivery" },
-  { code: "YUVA200", label: "YUVA200", description: "Flat ₹200 OFF + Free Delivery" },
-  { code: "PARTY06", label: "PARTY06", description: "30% OFF + Free Delivery" },
-  { code: "YUVA400", label: "YUVA400", description: "Flat ₹400 OFF + Free Delivery" },
+  { code: "YI200", label: "YI200", description: "Flat ₹200 OFF + Free Delivery" },
+  { code: "YI400", label: "YI400", description: "Flat ₹400 OFF + Free Delivery" },
   { code: "NAVA001", label: "NAVA001", description: "Total becomes ₹1 + Free Delivery" },
-  { code: "YUVA03", label: "YUVA03", description: "Cart total becomes Rs 100 + Free Delivery" }
+  { code: "YUVA03", label: "YUVA03", description: "Cart total becomes Rs 100 + Free Delivery" },
+  { code: "NUTRISUDDH03", label: "Nutrisuddh03", description: "Flat ₹300 OFF on Combo of 6" }
 ];
 
 function isCouponManagedLine(item: CartItem) {
@@ -273,7 +272,7 @@ export function getCartHighlightState(cart: CartItem[]): CartHighlightState {
 function normalizeCouponCode(rawCode: string | null | undefined): DiscountCode | null {
   if (!rawCode) return null;
   const code = rawCode.trim().toUpperCase();
-  if (code === "COMBO03" || code === "YUVA200" || code === "PARTY06" || code === "YUVA400" || code === "NAVA001" || code === "YUVA03") {
+  if (code === "YI200" || code === "YI400" || code === "NAVA001" || code === "YUVA03" || code === "NUTRISUDDH03") {
     return code;
   }
   return null;
@@ -285,11 +284,13 @@ export function getEligibleCouponCodes(cart: CartItem[]): DiscountCode[] {
   const eligible = new Set<DiscountCode>();
 
   if (singlePackQty >= 6 || comboBundle3Qty >= 2 || comboBundle6Qty >= 1) {
-    eligible.add("PARTY06");
-    eligible.add("YUVA400");
+    eligible.add("YI400");
   } else if (singlePackQty >= 3 || comboBundle3Qty >= 1) {
-    eligible.add("COMBO03");
-    eligible.add("YUVA200");
+    eligible.add("YI200");
+  }
+
+  if (comboBundle6Qty >= 1) {
+    eligible.add("NUTRISUDDH03");
   }
 
   if (paidLines.length > 0) {
@@ -303,18 +304,27 @@ export function getEligibleCouponCodes(cart: CartItem[]): DiscountCode[] {
   return Array.from(eligible);
 }
 
-export function getAutoCouponCode(cart: CartItem[]): DiscountCode | null {
-  const eligibleCoupons = new Set(getEligibleCouponCodes(cart));
-  if (eligibleCoupons.has("PARTY06")) {
-    return "PARTY06";
+export function getFirstOrderAutoCouponCode(cart: CartItem[], isFirstOrder: boolean): DiscountCode | null {
+  if (!isFirstOrder) return null;
+
+  const { singlePackQty, comboBundle3Qty, comboBundle6Qty } = getPaidCartMetrics(cart);
+
+  if (singlePackQty >= 6 || comboBundle3Qty >= 2 || comboBundle6Qty >= 1) {
+    return "WELCOME06";
   }
-  if (eligibleCoupons.has("COMBO03")) {
-    return "COMBO03";
+
+  if (singlePackQty >= 3 || comboBundle3Qty >= 1) {
+    return "WELCOME03";
   }
+
   return null;
 }
 
-export function getCartPricing(cart: CartItem[], couponCodeInput?: string | null): CartPricing {
+export function getCartPricing(
+  cart: CartItem[],
+  couponCodeInput?: string | null,
+  options?: { autoCouponCode?: DiscountCode | null }
+): CartPricing {
   const lines = getDetailedCartItems(cart);
 
   const subtotal = lines.reduce((sum, line) => sum + line.linePrice, 0);
@@ -346,21 +356,23 @@ export function getCartPricing(cart: CartItem[], couponCodeInput?: string | null
   const eligibleCoupons = new Set(getEligibleCouponCodes(cart));
   const normalizedCoupon = normalizeCouponCode(couponCodeInput);
   const manualCouponCode: DiscountCode | null = normalizedCoupon && eligibleCoupons.has(normalizedCoupon) ? normalizedCoupon : null;
-  const discountCode: DiscountCode | null = manualCouponCode ?? getAutoCouponCode(cart);
+  const discountCode: DiscountCode | null = manualCouponCode ?? options?.autoCouponCode ?? null;
 
   let discountAmount = 0;
-  if (discountCode === "COMBO03") {
+  if (discountCode === "WELCOME03") {
     discountAmount = subtotal * 0.25;
-  } else if (discountCode === "PARTY06") {
+  } else if (discountCode === "WELCOME06") {
     discountAmount = subtotal * 0.3;
-  } else if (discountCode === "YUVA200") {
+  } else if (discountCode === "YI200") {
     discountAmount = 200;
-  } else if (discountCode === "YUVA400") {
+  } else if (discountCode === "YI400") {
     discountAmount = 400;
   } else if (discountCode === "NAVA001") {
     discountAmount = Math.max(0, subtotal - 1);
   } else if (discountCode === "YUVA03") {
     discountAmount = Math.max(0, subtotal - 100);
+  } else if (discountCode === "NUTRISUDDH03") {
+    discountAmount = 300;
   }
 
   discountAmount = Math.min(subtotal, Math.round(discountAmount));
@@ -398,12 +410,16 @@ export function getCouponIneligibilityReason(codeInput: string): string {
     return "Need exactly 3 single packs or exactly 1 Combo of 3 pack, with no extra items.";
   }
 
-  if (code === "COMBO03" || code === "YUVA200") {
+  if (code === "WELCOME03" || code === "YI200") {
     return "Need 3+ single packs or 1+ Combo of 3 pack.";
   }
 
-  if (code === "PARTY06" || code === "YUVA400") {
+  if (code === "WELCOME06" || code === "YI400") {
     return "Need 6+ single packs, or 2+ Combo of 3 packs, or 1+ Combo of 6 pack.";
+  }
+
+  if (code === "NUTRISUDDH03") {
+    return "Need 1+ Combo of 6 pack.";
   }
 
   return "Coupon not valid for current cart.";

@@ -720,6 +720,34 @@ app.post("/api/auth/checkout-account", async (req, res) => {
   }
 });
 
+app.post("/api/auth/checkout-account-status", async (req, res) => {
+  try {
+    const body = req.body as { email?: string };
+    const email = body.email ? normalizeEmail(body.email) : "";
+
+    if (!email || !email.includes("@")) {
+      return res.status(400).json({ error: "Valid email is required." });
+    }
+
+    const user = getUserByEmail.get(email) as
+      | { id: number }
+      | undefined;
+
+    if (!user) {
+      return res.json({ isFirstOrder: true });
+    }
+
+    const orderCountRow = db
+      .prepare("SELECT COUNT(*) as count FROM orders WHERE user_id = ?")
+      .get(user.id) as { count: number };
+
+    return res.json({ isFirstOrder: (orderCountRow?.count ?? 0) === 0 });
+  } catch (error) {
+    console.error("Checkout account status failed", error);
+    return res.status(500).json({ error: "Unable to determine checkout account status." });
+  }
+});
+
 app.post("/api/auth/admin/login", async (req, res) => {
   try {
     const body = req.body as { email?: string; password?: string };

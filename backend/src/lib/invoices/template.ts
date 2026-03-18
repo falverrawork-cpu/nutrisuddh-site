@@ -32,7 +32,7 @@ export type InvoiceTemplateData = {
 
 const IMAGEKIT_LOGO_URL = "https://ik.imagekit.io/Falverra/brand-logo.png?updatedAt=1772868770392";
 const SELLER_NAME = "NS AGRO OVERSEAS";
-const SELLER_ADDRESS = "Krishna Heights Building, Shop No 4, Pranami Mandir Road, Ward 40, Dist Darjeeling, Siliguri 734001.";
+const SELLER_ADDRESS = "Pranami mandir road, Siliguri, Dist Darjeeling WB 734001";
 const SELLER_CONTACT = "+91 7001988499";
 const SELLER_EMAIL = "contact@nutrisuddh.com";
 const SELLER_WEBSITE = "www.nutrisuddh.com";
